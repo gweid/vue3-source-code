@@ -355,6 +355,8 @@ function createDuplicateChecker() {
 
 type DataFn = (vm: ComponentPublicInstance) => any
 
+// 兼容 vue2 的 api
+// 注意：因为 vue3 不再推荐使用 mixins，所以 mixins 里面只可以使用 vue2 的语法，vue3 的语法不再支持
 export function applyOptions(
   instance: ComponentInternalInstance,
   options: ComponentOptions,

@@ -631,6 +631,7 @@ function finishComponentSetup(
   }
 
   // support for 2.x options
+  // 如果还在使用 vue2.x 的 api，将会调用 applyOptions 去做兼容
   if (__FEATURE_OPTIONS__) {
     currentInstance = instance
     applyOptions(instance, Component)
