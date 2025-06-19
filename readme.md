@@ -24,7 +24,7 @@
 
    构建后的产物，后面需要引入这个产物进行调试
 
-   ![](./imgs/img3.png)
+   ![](./imgs/img2.png)
 
    
 
@@ -47,7 +47,7 @@
          return binding.readFileUtf8(path, stringToFlags(options.flag));
      ```
 
-     ![](./imgs/img2.png)
+     ![](./imgs/img3.png)
 
      找到 `scripts/inline-enums.js` 文件，修改
 
