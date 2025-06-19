@@ -1,63 +1,160 @@
-# VUE3 源码阅读（TODO）
+# Vue3 源码
 
-基于 vue-next3.0.11 版本。
+基于 vue@3.4.38 版本。
 
 
 
 ## 调试方法
 
-1. 首先，将  vue-next 源码 clone 到本地，并执行 `yarn install` 装包
+1. 首先，将 [vue@3.4.38](https://github.com/vuejs/core/tree/v3.4.38) 源码 clone 或者下载到本地，并进到根目录，执行 `pnpm install` 装包
 
-2. 接着，新建测试用例：新建 `examples/test.html`
+   ![](./imgs/img1.png)
 
-   ```js
+   根据 vue 的 `.node-version` 建议，使用 node 20 版本
+
+   如果遇到因为 puppeteer 而导致安装包失败，可以删除 package.json 中的 puppeteer 依赖，这是端到端测试用的，没影响，或者执行
+
+   ```shell
+   PUPPETEER_SKIP_DOWNLOAD=true pnpm install   # 跳过 puppeteer 安装
+   ```
+
+2. 执行 `pnpm dev` 构建 vue 开发环境产物
+
+   > 相比而言，`npm run dev`生成的文件更少，速度更快，而且 dev 环境本身就有 sourcemap
+
+   构建后的产物，后面需要引入这个产物进行调试
+
+   ![](./imgs/img3.png)
+
+   
+
+3. 如果要使用 `pnpm build` 构建，需要：
+
+   - 找到 vue 源码目录下的 `rollup.config.js` 文件，开启 sourcemap
+
+     ```js
+     // 找到这行，将 !!process.env.SOURCE_MAP 改为 true
+     output.sourcemap = !!process.env.SOURCE_MAP
+     
+     // 改为
+     output.sourcemap = true
+     ```
+
+   - 执行 `pnpm build` 构建，如果遇到错误
+
+     ```shell
+     node:fs:448
+         return binding.readFileUtf8(path, stringToFlags(options.flag));
+     ```
+
+     ![](./imgs/img2.png)
+
+     找到 `scripts/inline-enums.js` 文件，修改
+
+     ```js
+     // 2. parse matched files to collect enum info
+     for (const relativeFile of files) {
+       const file = path.resolve(process.cwd(), relativeFile)
+       const content = readFileSync(file, 'utf-8')
+     
+       // .....
+     }
+     
+     
+     
+     // 将上面这段修改下，改为：
+     for (const relativeFile of files) {
+       const file = path.resolve(process.cwd(), relativeFile)
+     
+       // 还要引入 statSync 包
+       const stats = statSync(file)
+       if (!stats.isFile()) {
+         console.error(`Path ${file} is not a file`)
+         continue
+       }
+     
+       const content = readFileSync(file, 'utf-8')
+     
+       // .....
+     }
+     ```
+
+     
+
+4. 在 vue 源码同级目录下，新建 vue-debug 项目，里面新建 index.html，用于调试
+
+   ```html
+   <!DOCTYPE html>
    <html lang="en">
    <head>
      <meta charset="UTF-8">
      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-     <title>Vue3源码调试</title>
-     <script src="../packages/vue/dist/vue.global.js"></script>
+     <title>Document</title>
    </head>
-   
    <body>
-     <div id="app"></div>
+     <script src="../vue/packages/vue/dist/vue.global.js"></script>
+   
+     <div id="app">
+       <section class="container">
+         <div>
+           <p>{{ state.count }}</p>
+           <button @click="increment">加一</button>
+         </div>
+       </section>
+     </div>
+   
      <script>
-       const { createApp, ref } = Vue
-       const App = {
-         template: `
-           <div>{{ msg }}</div>
-         `,
+       const {
+         createApp,
+         reactive,
+         computed,
+         watchEffect,
+         onMounted,
+         onUnmounted
+       } = Vue
+   
+       createApp({
          setup() {
-           const msg = ref('hello, vue3')
+           const state = reactive({
+             count: 0
+           })
+   
+           const increment = () => {
+             state.count++
+           }
+   
            return {
-             msg
+             state,
+             increment
            }
          }
-       }
-   
-       createApp(App).mount('#app')
+       }).mount('#app')
      </script>
    </body>
    </html>
    ```
 
-3. 接下来就是配置生成带 source-map 的 vue 包，用于源码调试。第一步，在源码根目录找到 `rollup.config.js`，加上 source-map 配置：
-
-   ![](/imgs/img1.png)
-
-   然后，需要找到源码根目录下的 `tsconfig.json`，把 `sourceMap` 设置为 true
-
-   ![](/imgs/img2.png)
-
-4. 最后，运行 `yarn dev`，在测试用例或者源码上打 debugger 进行调试即可，例如：
-
-   ![](/imgs/img3.png)
-
-   在浏览器打开 test.html，f12 将进入 debugger 模式
+   这样，只要在 index.html 中打上 debugger，在浏览器打开，即可进入 debug 模式
 
 
 
-## Vue3 complier 编译优化
+## 目录结构
 
-[优化细节](https://www.processon.com/embed/5fc9eef75653bb7d2b2aba77)
+基于上面的调试方式，目录结构如下：
+
+```text
+vite-source-code
+├── vue                          // vue 源码目录
+│   ├── packages
+│   │   ├── vue
+│   ├── package.json
+│   ├── pnpm-lock.yaml
+│   └── rollup.config.js
+├── vue-debug                    // 调试 vue 源码的项目
+│   ├── index.html               // 具体调试文件
+├── .gitignore
+└── readme.md
+```
+
+
+

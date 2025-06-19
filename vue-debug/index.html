@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script src="../vue/packages/vue/dist/vue.global.js"></script>
+
+  <div id="app">
+    <section class="container">
+      <div>
+        <p>{{ state.count }}</p>
+        <button @click="increment">加一</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const {
+      createApp,
+      reactive,
+      computed,
+      watchEffect,
+      onMounted,
+      onUnmounted
+    } = Vue
+
+    debugger
+    createApp({
+      setup() {
+        const state = reactive({
+          count: 0
+        })
+
+        const increment = () => {
+          state.count++
+        }
+
+        return {
+          state,
+          increment
+        }
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>

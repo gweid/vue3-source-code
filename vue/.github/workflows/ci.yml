@@ -1,0 +1,14 @@
+name: 'ci'
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+      - minor
+
+jobs:
+  test:
+    if: ${{ ! startsWith(github.event.head_commit.message, 'release:') && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository) }}
+    uses: ./.github/workflows/test.yml
