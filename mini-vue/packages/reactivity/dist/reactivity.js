@@ -1,4 +1,5 @@
 // packages/reactivity/src/effect.ts
+var activeEffect;
 function effect(fn, options) {
   const _effect = new ReactiveEffect(fn, () => {
     _effect.run();
@@ -10,19 +11,6 @@ function effect(fn, options) {
   const runner = _effect.run.bind(_effect);
   runner.effect = _effect;
   return runner;
-}
-var activeEffect;
-function preCleanEffect(effect2) {
-  effect2._depsLength = 0;
-  effect2._trackId++;
-}
-function postCleanEffect(effect2) {
-  if (effect2.deps.length > effect2._depsLength) {
-    for (let i = effect2._depsLength; i < effect2.deps.length; i++) {
-      cleanDepEffect(effect2.deps[i], effect2);
-    }
-    effect2.deps.length = effect2._depsLength;
-  }
 }
 var ReactiveEffect = class {
   // 创建的 effect 是响应式的
@@ -72,12 +60,6 @@ var ReactiveEffect = class {
     }
   }
 };
-function cleanDepEffect(dep, effect2) {
-  dep.delete(effect2);
-  if (dep.size == 0) {
-    dep.cleanup();
-  }
-}
 function trackEffect(effect2, dep) {
   if (dep.get(effect2) !== effect2._trackId) {
     dep.set(effect2, effect2._trackId);
@@ -102,6 +84,24 @@ function triggerEffects(dep) {
         effect2.scheduler();
       }
     }
+  }
+}
+function preCleanEffect(effect2) {
+  effect2._depsLength = 0;
+  effect2._trackId++;
+}
+function postCleanEffect(effect2) {
+  if (effect2.deps.length > effect2._depsLength) {
+    for (let i = effect2._depsLength; i < effect2.deps.length; i++) {
+      cleanDepEffect(effect2.deps[i], effect2);
+    }
+    effect2.deps.length = effect2._depsLength;
+  }
+}
+function cleanDepEffect(dep, effect2) {
+  dep.delete(effect2);
+  if (dep.size == 0) {
+    dep.cleanup();
   }
 }
 

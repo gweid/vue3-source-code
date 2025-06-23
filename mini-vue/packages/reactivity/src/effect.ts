@@ -1,5 +1,8 @@
 import { DirtyLevels } from "./constants";
 
+export let activeEffect;
+
+
 export function effect(fn, options?) {
   // 创建一个响应式effect 数据变化后可以重新执行
 
@@ -20,24 +23,6 @@ export function effect(fn, options?) {
 
   // 返回 runner 函数，外部使用可以自己让其重新 run
   return runner;
-}
-
-export let activeEffect;
-
-function preCleanEffect(effect) {
-  effect._depsLength = 0;
-  effect._trackId++; // 每次执行id 都是+1， 如果当前同一个 effect 执行，id 就是相同的
-}
-
-function postCleanEffect(effect) {
-  // [flag,a,b,c]
-  // [flag]  -> effect._depsLength = 1
-  if (effect.deps.length > effect._depsLength) {
-    for (let i = effect._depsLength; i < effect.deps.length; i++) {
-      cleanDepEffect(effect.deps[i], effect); // 删除映射表中对应的effect
-    }
-    effect.deps.length = effect._depsLength; // 更新依赖列表的长度
-  }
 }
 
 
@@ -77,6 +62,7 @@ export class ReactiveEffect {
     // 这样可以处理 effect 嵌套的问题
     // effect(() => { effect(() => {}) })
     let lastEffect = activeEffect;
+
     try {
       // 将当前的 effect 保存到全局变量中
       // 当在 effect 副作用函数中对响应式对象取值的时候，会触发 proxy 的 get 拦截器
@@ -111,16 +97,6 @@ export class ReactiveEffect {
   }
 }
 
-// 1._trackId 用于记录执行次数 (防止一个属性在当前effect中多次依赖收集) 只收集一次
-// 2.拿到上一次依赖的最后一个和这次的比较
-// {flag,age}
-
-function cleanDepEffect(dep, effect) {
-  dep.delete(effect);
-  if (dep.size == 0) {
-    dep.cleanup(); // 如果 map 为空，则删除这个属性
-  }
-}
 
 /**
  * 收集依赖
@@ -171,5 +147,33 @@ export function triggerEffects(dep) {
         effect.scheduler(); // -> effect.run()
       }
     }
+  }
+}
+
+
+function preCleanEffect(effect) {
+  effect._depsLength = 0;
+  effect._trackId++; // 每次执行id 都是+1， 如果当前同一个 effect 执行，id 就是相同的
+}
+
+function postCleanEffect(effect) {
+  // [flag,a,b,c]
+  // [flag]  -> effect._depsLength = 1
+  if (effect.deps.length > effect._depsLength) {
+    for (let i = effect._depsLength; i < effect.deps.length; i++) {
+      cleanDepEffect(effect.deps[i], effect); // 删除映射表中对应的effect
+    }
+    effect.deps.length = effect._depsLength; // 更新依赖列表的长度
+  }
+}
+
+// 1._trackId 用于记录执行次数 (防止一个属性在当前effect中多次依赖收集) 只收集一次
+// 2.拿到上一次依赖的最后一个和这次的比较
+// {flag,age}
+
+function cleanDepEffect(dep, effect) {
+  dep.delete(effect);
+  if (dep.size == 0) {
+    dep.cleanup(); // 如果 map 为空，则删除这个属性
   }
 }
