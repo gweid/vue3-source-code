@@ -25,14 +25,14 @@ function postCleanEffect(effect2) {
   }
 }
 var ReactiveEffect = class {
-  // 创建的effect是响应式的
+  // 创建的 effect 是响应式的
   // fn 用户编写的函数
   // 如果fn中依赖的数据发生变化后，需要重新调用 -> run()
   constructor(fn, scheduler) {
     this.fn = fn;
     this.scheduler = scheduler;
     this._trackId = 0;
-    // 用于记录当前effect执行了几次
+    // 用于记录当前 effect 执行了几次
     this._depsLength = 0;
     this._running = 0;
     this._dirtyLevel = 4 /* Dirty */;
@@ -62,6 +62,7 @@ var ReactiveEffect = class {
       activeEffect = lastEffect;
     }
   }
+  // 停止所有的 effect 不参加响应式处理
   stop() {
     if (this.active) {
       this.active = false;
@@ -134,6 +135,7 @@ function track(target, key) {
       );
     }
     trackEffect(activeEffect, dep);
+    console.log("targetMap: ", targetMap);
   }
 }
 function trigger(target, key, newValue, oldValue) {
@@ -171,7 +173,7 @@ var mutableHandlers = {
 };
 
 // packages/reactivity/src/reactive.ts
-var reactiveMap = /* @__PURE__ */ new WeakMap();
+var proxyMap = /* @__PURE__ */ new WeakMap();
 function createReactiveObject(target) {
   if (!isObject(target)) {
     return target;
@@ -179,12 +181,12 @@ function createReactiveObject(target) {
   if (target["__v_isReactive" /* IS_REACTIVE */]) {
     return target;
   }
-  const exitsProxy = reactiveMap.get(target);
-  if (exitsProxy) {
-    return exitsProxy;
+  const existingProxy = proxyMap.get(target);
+  if (existingProxy) {
+    return existingProxy;
   }
   let proxy = new Proxy(target, mutableHandlers);
-  reactiveMap.set(target, proxy);
+  proxyMap.set(target, proxy);
   return proxy;
 }
 function reactive(target) {

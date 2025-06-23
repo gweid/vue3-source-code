@@ -248,6 +248,14 @@ export function shallowReadonly<T extends object>(target: T): Readonly<T> {
   )
 }
 
+/**
+ * 创建响应式对象
+ * @param target 
+ * @param isReadonly 
+ * @param baseHandlers 
+ * @param collectionHandlers 
+ * @param proxyMap 
+ */
 function createReactiveObject(
   target: Target,
   isReadonly: boolean,
@@ -255,6 +263,7 @@ function createReactiveObject(
   collectionHandlers: ProxyHandler<any>,
   proxyMap: WeakMap<Target, any>,
 ) {
+  // !响应式对象必须是对象
   if (!isObject(target)) {
     if (__DEV__) {
       warn(
@@ -273,6 +282,8 @@ function createReactiveObject(
   ) {
     return target
   }
+
+  // ! 如果有缓存，直接返回缓存
   // target already has corresponding Proxy
   const existingProxy = proxyMap.get(target)
   if (existingProxy) {
@@ -283,10 +294,14 @@ function createReactiveObject(
   if (targetType === TargetType.INVALID) {
     return target
   }
+
+  // ! 创建代理
   const proxy = new Proxy(
     target,
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers,
   )
+
+  // ! 缓存代理
   proxyMap.set(target, proxy)
   return proxy
 }

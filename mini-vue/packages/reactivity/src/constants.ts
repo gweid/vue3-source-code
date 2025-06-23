@@ -1,5 +1,5 @@
 export enum ReactiveFlags {
-  IS_REACTIVE = "__v_isReactive", // 基本上唯一
+  IS_REACTIVE = "__v_isReactive", // 标记是 reactivity 对象
 }
 
 export enum DirtyLevels {

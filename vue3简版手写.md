@@ -39,3 +39,30 @@ mini-vue
 ├── pnpm-workspace.yaml            // 设置 monorepo                  
 └── tsconfig.json                  // ts 配置
 ```
+
+
+
+## reactivity
+
+
+
+响应式系统相关
+
+
+
+### 实现 reactive 函数
+
+
+
+### 实现 effect
+
+
+
+### 依赖收集
+
+
+
+
+
+
+

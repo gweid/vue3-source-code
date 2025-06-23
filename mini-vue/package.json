@@ -6,7 +6,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/dev.js compiler-core -f esm"
+    "dev": "node scripts/dev.js reactivity -f esm"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +17,6 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "vue": "^3.4.23"
+    "vue": "3.4.38"
   }
 }
