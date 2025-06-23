@@ -20,14 +20,22 @@
 
 ```text
 mini-vue
-├── vue                          // vue 源码目录
-│   ├── packages
-│   │   ├── vue
-│   ├── package.json
-│   ├── pnpm-lock.yaml
-│   └── rollup.config.js
-├── vue-debug                    // 调试 vue 源码的项目
-│   ├── index.html               // 具体调试文件
-├── .gitignore
-└── readme.md
+├── debug                          // 调试目录
+│   ├── compiler                   // 调试编译时
+│   ├── reactivity                 // 调试响应式
+│   └── runtime                    // 调试运行时
+├── packages                       // 手写 vue3 源码
+│   ├── compiler-core
+│   ├── compiler-dom
+│   ├── compiler-sfc
+│   ├── reactivity
+│   ├── runtime-core
+│   ├── runtime-dom
+│   └── shared
+├── scripts                        // 打包脚本
+├── .npmrc                         // npm 配置
+├── package.json                  
+├── pnpm-lock.yaml                  
+├── pnpm-workspace.yaml            // 设置 monorepo                  
+└── tsconfig.json                  // ts 配置
 ```
