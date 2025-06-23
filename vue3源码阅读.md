@@ -81,7 +81,7 @@
 
      
 
-4. 在 vue 源码同级目录下，新建 vue-debug 项目，里面新建 index.html，用于调试
+4. 在 vue 源码目录下，新建 debug 目录，里面新建 index.html，用于调试
 
    ```html
    <!DOCTYPE html>
@@ -92,7 +92,7 @@
      <title>Document</title>
    </head>
    <body>
-     <script src="../vue/packages/vue/dist/vue.global.js"></script>
+     <script src="./packages/vue/dist/vue.global.js"></script>
    
      <div id="app">
        <section class="container">
@@ -143,15 +143,15 @@
 基于上面的调试方式，目录结构如下：
 
 ```text
-vite-source-code
+vue-source-code
 ├── vue                          // vue 源码目录
+│   ├── debug                    // 调试 vue 源码的项目
+│   │   ├── index.html           // 具体调试文件
 │   ├── packages
 │   │   ├── vue
 │   ├── package.json
 │   ├── pnpm-lock.yaml
 │   └── rollup.config.js
-├── vue-debug                    // 调试 vue 源码的项目
-│   ├── index.html               // 具体调试文件
 ├── .gitignore
 └── readme.md
 ```
