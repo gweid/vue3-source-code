@@ -37,6 +37,7 @@ var ReactiveEffect = class {
     this._running = 0;
     this._dirtyLevel = 4 /* Dirty */;
     this.deps = [];
+    // 依赖收集数组
     this.active = true;
   }
   get dirty() {
@@ -112,14 +113,16 @@ function isFunction(value) {
   return typeof value == "function";
 }
 
-// packages/reactivity/src/reactiveEffect.ts
-var targetMap = /* @__PURE__ */ new WeakMap();
+// packages/reactivity/src/dep.ts
 var createDep = (cleanup, key) => {
   const dep = /* @__PURE__ */ new Map();
   dep.cleanup = cleanup;
   dep.name = key;
   return dep;
 };
+
+// packages/reactivity/src/reactiveEffect.ts
+var targetMap = /* @__PURE__ */ new WeakMap();
 function track(target, key) {
   if (activeEffect) {
     let depsMap = targetMap.get(target);

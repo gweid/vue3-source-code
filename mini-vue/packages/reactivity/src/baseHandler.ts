@@ -28,18 +28,19 @@ export const mutableHandlers: ProxyHandler<any> = {
     let res = Reflect.get(target, key, recevier);
 
     if (isObject(res)) {
-      // 当取的值也是对象的时候，我需要对这个对象在进行代理，递归代理
+      // 当取的值也是对象的时候，需要对这个对象在进行代理，递归代理
       return reactive(res);
     }
 
     return res;
   },
   set(target, key, value, recevier) {
-    // 找到属性 让对应的effect重新执行
+    // 找到属性 让对应的 effect 重新执行
 
     let oldValue = target[key];
 
     let result = Reflect.set(target, key, value, recevier);
+
     if (oldValue !== value) {
       // 需要触发页面更新
       trigger(target, key, value, oldValue);

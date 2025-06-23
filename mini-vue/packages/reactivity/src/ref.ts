@@ -2,7 +2,7 @@
 
 import { activeEffect, trackEffect, triggerEffects } from "./effect";
 import { toReactive } from "./reactive";
-import { createDep } from "./reactiveEffect";
+import { createDep } from "./dep";
 
 // ref   shallowRef
 export function ref(value) {

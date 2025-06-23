@@ -46,7 +46,9 @@ export class ReactiveEffect {
   _depsLength = 0;
   _running = 0;
   _dirtyLevel = DirtyLevels.Dirty;
-  deps = [];
+
+  deps = []; // 依赖收集数组
+
   public active = true; // 创建的 effect 是响应式的
 
   // fn 用户编写的函数
@@ -108,7 +110,6 @@ export class ReactiveEffect {
     }
   }
 }
-// 双向记忆
 
 // 1._trackId 用于记录执行次数 (防止一个属性在当前effect中多次依赖收集) 只收集一次
 // 2.拿到上一次依赖的最后一个和这次的比较
@@ -117,19 +118,24 @@ export class ReactiveEffect {
 function cleanDepEffect(dep, effect) {
   dep.delete(effect);
   if (dep.size == 0) {
-    dep.cleanup(); // 如果map为空，则删除这个属性
+    dep.cleanup(); // 如果 map 为空，则删除这个属性
   }
 }
 
+/**
+ * 收集依赖
+ * @param effect 当前的 effect
+ * @param dep 收集依赖的映射表 Map
+ */
 export function trackEffect(effect, dep) {
   // 收集是一个个收集的
   // 需要重新的去收集依赖，将不需要的移除掉
   // console.log(effect, dep);
-
   if (dep.get(effect) !== effect._trackId) {
-    dep.set(effect, effect._trackId); // 更新id
-    // {flag,name}
-    // {flag,age
+    // 双向记忆：收集器 dep 记录了 effect，effect 中的 deps 数组记录了 收集器 dep
+    dep.set(effect, effect._trackId); // 更新 id
+
+    // { flag, name }、{ flag, age }
     let oldDep = effect.deps[effect._depsLength];
 
     // 如果没有存过
@@ -138,7 +144,8 @@ export function trackEffect(effect, dep) {
         // 删除掉老的
         cleanDepEffect(oldDep, effect);
       }
-      // 换成新的
+
+      // effect 中的 deps 数组记录了 收集器 dep
       effect.deps[effect._depsLength++] = dep; // 永远按照本次最新的来存放
     } else {
       effect._depsLength++;

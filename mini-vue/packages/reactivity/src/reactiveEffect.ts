@@ -1,19 +1,8 @@
 import { activeEffect, trackEffect, triggerEffects } from "./effect";
+import { createDep } from "./dep";
 
 const targetMap = new WeakMap(); // 存放依赖收集的关系
 
-/**
- * 创建依赖收集器
- * @param cleanup 清理函数
- * @param key 依赖的属性
- * @returns 依赖收集器
- */
-export const createDep = (cleanup, key) => {
-  const dep = new Map() as any; // 创建的收集器还是一个map
-  dep.cleanup = cleanup;
-  dep.name = key; // 自定义的为了标识这个映射表是给哪个属性服务的
-  return dep;
-};
 
 /**
  * 依赖收集
@@ -61,7 +50,8 @@ export function track(target, key) {
       );
     }
 
-    // 将当前的 effect 放入到 dep（映射表）中，后续可以根据值的变化触发此 dep 中存放的 effect
+    // 将当前的 effect 放入到 dep（依赖映射表）中
+    // 后续可以根据值的变化触发此 dep 中存放的 effect
     trackEffect(activeEffect, dep);
 
     console.log('targetMap: ', targetMap);
