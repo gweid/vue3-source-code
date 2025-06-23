@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   render,
+      //   Fragment,
+      //   h,
+      //   Text,
+      //   ref,
+      //   getCurrentInstance,
+      //   onMounted,
+      //   onBeforeMount,
+      //   onBeforeUpdate,
+      //   onUpdated,
+      //   provide,
+      //   inject,
+      //   Teleport, // == render
+      //   // Transition,
+      //   KeepAlive,
+      // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js";
+
+      import {
+        createRenderer,
+        render,
+        Fragment,
+        h,
+        Text,
+        ref,
+        getCurrentInstance,
+        onMounted,
+        onBeforeMount,
+        onBeforeUpdate,
+        onUpdated,
+        provide,
+        inject,
+        Teleport, // == render
+        // Transition,
+        KeepAlive,
+      } from "../../packages/runtime-dom/dist/runtime-dom.js";
+
+      // 缓存的是dom， keepalive缓存后不会重新渲染，而是复用原来的dom元素
+
+      // 1.组件不会被重新创建，会将上次的结果拿出来返回
+      // 2.组件不会被被卸载，而是将dom移除掉
+      // 3.内部需要缓存dom
+
+      let keepAliveProps = { max: 1 };
+      const A1 = {
+        a: "a1",
+        setup() {
+          onMounted(() => {
+            console.log("a1 mounted");
+          });
+          return () => {
+            return h("h1", "a1");
+          };
+        },
+      };
+      const A2 = {
+        a: "a2",
+        setup() {
+          onMounted(() => {
+            console.log("a2 mounted");
+          });
+          return () => {
+            return h("h1", "a2");
+          };
+        },
+      };
+      const A3 = {
+        a: "a3",
+        setup() {
+          onMounted(() => {
+            console.log("a3 mounted");
+          });
+          return () => {
+            return h("h1", "a3");
+          };
+        },
+      };
+
+      render(
+        h(KeepAlive, keepAliveProps, {
+          default: () => h(A1, { key: "a1" }),
+        }),
+        app
+      );
+
+      setTimeout(() => {
+        render(
+          h(KeepAlive, keepAliveProps, {
+            default: () => h(A2, { key: "a2" }),
+          }),
+          app
+        );
+      }, 1000);
+
+      setTimeout(() => {
+        render(
+          h(KeepAlive, keepAliveProps, {
+            default: () => h(A1, { key: "a1" }),
+          }),
+          app
+        );
+      }, 2000);
+
+      setTimeout(() => {
+        render(
+          h(KeepAlive, keepAliveProps, {
+            default: () => h(A3, { key: "a3" }),
+          }),
+          app
+        );
+      }, 3000);
+
+      setTimeout(() => {
+        render(
+          h(KeepAlive, keepAliveProps, {
+            default: () => h(A2, { key: "a2" }),
+          }),
+          app
+        );
+      }, 4000);
+
+      // import {
+      //   render,
+      //   h,
+      //   Text,
+      //   Fragment,
+      //   ref, //   onMounted,
+      //   onBeforeMount,
+      //   onBeforeUpdate,
+      //   onUpdated,
+      //   onMounted,
+      //   getCurrentInstance,
+      //   provide,
+      //   inject,
+      //   Teleport,
+      //   Transition,
+      // } from "../../packages/runtime-dom/dist/runtime-dom.js";
+    </script>
+  </body>
+</html>

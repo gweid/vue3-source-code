@@ -1,0 +1,22 @@
+{
+  "name": "vue3-lesson",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.js compiler-core -f esm"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.20.2",
+    "minimist": "^1.2.8",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "vue": "^3.4.23"
+  }
+}
