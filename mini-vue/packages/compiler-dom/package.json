@@ -1,0 +1,18 @@
+{
+  "name": "@vue/compiler-dom",
+  "version": "1.0.0",
+  "module": "dist/compiler-dom.esm-bundler.js",
+  "unpkg": "dist/compiler-dom.global.js",
+  "buildOptions": {
+    "name": "VueCompilerDom",
+    "formats": [
+      "esm-bundler",
+      "esm-browser",
+      "cjs",
+      "global"
+    ]
+  },
+  "dependencies": {
+    "@vue/shared": "workspace:*"
+  }
+}
