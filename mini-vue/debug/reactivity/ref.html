@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // 原生的
+      // import {
+      //   effect,
+      //   ref,
+      //   toRef,
+      //   toRefs,
+      // } from "/node_modules/vue/dist/vue.esm-browser.js";
+
+      // 从 mini-vue 引入
+      import {
+        effect,
+        reactive,
+        ref,
+        toRef,
+        toRefs,
+        proxyRefs,
+      } from "../../packages/reactivity/dist/reactivity.js";
+
+
+
+      // ------------------------------- ref 基本使用 -------------------------------
+
+      // const state = ref('张三');
+
+      // effect(() => {
+      //   app.innerHTML = state.value;
+      // });
+
+      // setTimeout(() => {
+      //   state.value = '李四';
+      // }, 1000);
+
+
+
+      // ------------------------------- toRef、toRefs -------------------------------
+
+      // const state = reactive({ name: '张三', age: 18 });
+
+      // const stateRef = toRef(state, 'name');
+
+      // const stateRefs = toRefs(state);
+
+      // let { age } = stateRefs;
+
+      // effect(() => {
+      //   app.innerHTML = `name: ${stateRef.value}, age: ${age.value}`;
+      // });
+
+      // setTimeout(() => {
+      //   stateRef.value = '李四';
+      //   age.value = 20;
+      // }, 1000);
+
+
+
+      // ------------------------------- proxyRefs -------------------------------
+
+      const state = reactive({ name: '张三', age: 18 });
+
+      const stateRefs = toRefs(state);
+
+      const proxyState = proxyRefs({ ...stateRefs });
+
+      effect(() => {
+        // 使得 ref 不用使用 .value 就可以访问到值
+        app.innerHTML = `name: ${proxyState.name}, age: ${proxyState.age}`;
+      });
+    </script>
+  </body>
+</html>

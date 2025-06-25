@@ -1,9 +1,16 @@
 import { DirtyLevels } from "./constants";
 
+export type EffectScheduler = (...args: any[]) => any
+
+export interface ReactiveEffectOptions {
+  scheduler?: EffectScheduler
+}
+
+
 export let activeEffect;
 
 
-export function effect(fn, options?) {
+export function effect(fn, options?: ReactiveEffectOptions) {
   // 创建一个响应式effect 数据变化后可以重新执行
 
   // 创建一个 effect，只要依赖的属性变化了就要执行回调
@@ -16,11 +23,12 @@ export function effect(fn, options?) {
   _effect.run();
 
   if (options) {
-    Object.assign(_effect, options); // 用用户传递的覆盖掉内置的
+    // 用用户传递的覆盖掉内置的，比如 scheduler
+    Object.assign(_effect, options);
   }
 
   const runner = _effect.run.bind(_effect);
-  runner.effect = _effect; // 可以在 run 方法上获取到 effect 的引用
+  runner.effect = _effect; // 可以在 runner 方法上获取到 effect 的引用
 
   // 返回 runner 函数，外部使用可以自己让其重新 run
   return runner;
@@ -30,7 +38,7 @@ export function effect(fn, options?) {
 export class ReactiveEffect {
   _trackId = 0; // 用于记录当前 effect 执行了几次
   _depsLength = 0;
-  _running = 0;
+  _running = 0; // 标记当前 effect 是否正在执行，防止递归调用，进入死循环
   _dirtyLevel = DirtyLevels.Dirty;
 
   deps = []; // 依赖收集数组
@@ -169,6 +177,8 @@ export function triggerEffects(dep) {
       effect._dirtyLevel = DirtyLevels.Dirty;
     }
 
+    // _running > 0 代表当前 effect 正在执行
+    // effect 正在执行，不要调用 scheduler，防止递归调用，进入死循环
     if (!effect._running) {
 
       // new ReactiveEffect 创建 effect 的时候，传递了更新函数

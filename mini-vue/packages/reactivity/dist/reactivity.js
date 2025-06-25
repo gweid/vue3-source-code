@@ -23,6 +23,7 @@ var ReactiveEffect = class {
     // 用于记录当前 effect 执行了几次
     this._depsLength = 0;
     this._running = 0;
+    // 标记当前 effect 是否正在执行，防止递归调用，进入死循环
     this._dirtyLevel = 4 /* Dirty */;
     this.deps = [];
     // 依赖收集数组
@@ -177,6 +178,9 @@ var mutableHandlers = {
 
 // packages/reactivity/src/reactive.ts
 var proxyMap = /* @__PURE__ */ new WeakMap();
+function reactive(target) {
+  return createReactiveObject(target);
+}
 function createReactiveObject(target) {
   if (!isObject(target)) {
     return target;
@@ -192,9 +196,6 @@ function createReactiveObject(target) {
   proxyMap.set(target, proxy);
   return proxy;
 }
-function reactive(target) {
-  return createReactiveObject(target);
-}
 function toReactive(value) {
   return isObject(value) ? reactive(value) : value;
 }
@@ -206,24 +207,27 @@ function isReactive(value) {
 function ref(value) {
   return createRef(value);
 }
-function createRef(value) {
-  return new RefImpl(value);
+function createRef(rawValue) {
+  if (isRef(rawValue)) {
+    return rawValue;
+  }
+  return new RefImpl(rawValue);
 }
 var RefImpl = class {
-  // 用于收集对应的effect
-  constructor(rawValue) {
-    this.rawValue = rawValue;
+  // 用于收集对应的 effect
+  constructor(value) {
     this.__v_isRef = true;
-    this._value = toReactive(rawValue);
+    this._rawValue = value;
+    this._value = toReactive(value);
   }
   get value() {
     trackRefValue(this);
     return this._value;
   }
   set value(newValue) {
-    if (newValue !== this.rawValue) {
-      this.rawValue = newValue;
-      this._value = newValue;
+    if (newValue !== this._rawValue) {
+      this._rawValue = newValue;
+      this._value = toReactive(newValue);
       triggerRefValue(this);
     }
   }
@@ -243,7 +247,7 @@ function triggerRefValue(ref2) {
   }
 }
 var ObjectRefImpl = class {
-  // 增加ref标识
+  // 增加 ref 标识
   constructor(_object, _key) {
     this._object = _object;
     this._key = _key;

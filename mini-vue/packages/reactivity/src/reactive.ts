@@ -6,6 +6,15 @@ import { ReactiveFlags } from "./constants";
 const proxyMap = new WeakMap();
 
 /**
+ * 创建响应式对象
+ * @param target 需要代理的目标
+ * @returns 代理后的对象
+ */
+export function reactive(target) {
+  return createReactiveObject(target);
+}
+
+/**
  * 创建响应式对象函数
  * @param target 需要代理的目标
  * @returns 代理后的结果
@@ -36,15 +45,6 @@ function createReactiveObject(target) {
   proxyMap.set(target, proxy);
 
   return proxy;
-}
-
-/**
- * 创建响应式对象
- * @param target 需要代理的目标
- * @returns 代理后的对象
- */
-export function reactive(target) {
-  return createReactiveObject(target);
 }
 
 /**

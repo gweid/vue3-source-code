@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // 原生的
+      // import { reactive, effect } from "/node_modules/vue/dist/vue.esm-browser.js";
+
+      // 从 mini-vue 引入
+      import { reactive, effect } from "../../packages/reactivity/dist/reactivity.js";
+
+
+      // ------------------------------- effect 基础 -------------------------------
+
+      // const state = reactive({ flag: true, name: "张三", age: 18 });
+
+      // effect(() => {
+      //   app.innerHTML = state.name;
+      // });
+
+      // effect(() => {
+      //   console.log(state.name);
+      // })
+
+
+
+      // ------------------------------- 依赖收集、派发更新 -------------------------------
+
+      // const state = reactive({ name: "张三" });
+
+      // effect(() => {
+      //   app.innerHTML = state.name;
+      // });
+
+      // // 变更，触发派发更新（因为上面都对 state.name 进行了依赖收集）
+      // setTimeout(() => {
+      //   state.name = '李四';
+      // }, 1000);
+
+
+
+      // ------------------------------- 依赖清理 -------------------------------
+
+      // const state = reactive({ flag: true, name: "张三", age: 18 });
+
+      // // effect(() => {
+      // //   app.innerHTML = state.flag ? state.name + state.name : state.age;
+      // // });
+
+      // effect(() => {
+      //   app.innerHTML = state.name + state.name + state.name;
+      // });
+
+
+
+      // ------------------------------- effect 调度 -------------------------------
+
+      // const state = reactive({ name: "张三" });
+
+      // const runner = effect(() => {
+      //   app.innerHTML = state.name;
+      // }, {
+      //   scheduler() {
+      //     console.log('数据更新了，不重新渲染，走这里面的逻辑');
+
+      //     runner();
+      //   }
+      // });
+
+      // setTimeout(() => {
+      //   state.name = '李四';
+      // }, 1000);
+
+
+
+      // ------------------------------- 防止 effect 递归调用，进入死循环 -------------------------------
+
+      // const state = reactive({ name: "张三" });
+
+      // const runner = effect(() => {
+      //   app.innerHTML = state.name;
+
+      //   state.name = '李四';
+      // });
+
+
+
+      // ------------------------------- 深度代理 -------------------------------
+
+      const state = reactive({ address: { city: "北京" } });
+
+      const runner = effect(() => {
+        app.innerHTML = state.address.city;
+      });
+
+      setTimeout(() => {
+        state.address.city = '上海';
+      }, 1000);
+    </script>
+  </body>
+</html>

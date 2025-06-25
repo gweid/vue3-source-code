@@ -50,7 +50,13 @@ mini-vue
 
 
 
-### 实现 reactive 函数
+### reactive
+
+
+
+
+
+#### 实现 reactive
 
 首先，看下 reactive 的使用
 
@@ -62,7 +68,7 @@ const state = reactive({ name: 'jack' })
 
 
 
-#### reactive 的创建
+##### reactive 函数
 
 ```ts
 // 用于记录代理后的结果，可以复用
@@ -132,7 +138,7 @@ function createReactiveObject(target) {
 
 
 
-#### mutableHandlers 函数
+##### mutableHandlers 函数
 
 ```js
 export const mutableHandlers: ProxyHandler<any> = {
@@ -197,7 +203,7 @@ export const mutableHandlers: ProxyHandler<any> = {
 
 
 
-### 实现 effect
+#### 实现 effect
 
 effect 的基本使用：
 
@@ -217,7 +223,7 @@ effect 的作用：
 
 
 
-#### effect 函数
+##### effect 函数
 
 ```ts
 export function effect(fn, options?) {
@@ -310,7 +316,7 @@ effect(() => {
 
 
 
-### 依赖收集
+#### 依赖收集
 
 ```ts
 export const mutableHandlers: ProxyHandler<any> = {
@@ -459,7 +465,7 @@ Vue 3 维护着**双向依赖关系**：
 
 
 
-### 派发更新
+#### 派发更新
 
 
 
@@ -544,11 +550,11 @@ export function triggerEffects(dep) {
 
 
 
-### 依赖清理
+#### 依赖清理
 
 
 
-#### 问题：
+##### 问题
 
 
 
@@ -595,7 +601,7 @@ effect(() => {
 
 
 
-####实现
+##### 实现
 
 既然是在 effect 副作用重新执行前，需要清理旧的依赖关系，那么就是在 effect.run 函数中
 
@@ -728,10 +734,381 @@ export function trackEffect(effect, dep) {
 
 
 
-### 总结
+#### effect 调度
+
+effect 调度：数据更新了，不重新渲染，自行调度
+
+
+
+**基本使用：**
+
+```ts
+const state = reactive({ name: "张三" });
+
+const runner = effect(() => {
+  app.innerHTML = state.name;
+}, {
+  scheduler() {
+    console.log('数据更新了，不重新渲染，走这里面的逻辑');
+
+    runner();
+  }
+});
+
+setTimeout(() => {
+  state.name = '李四';
+}, 1000);
+```
+
+
+
+**实现 effect 调度：**
+
+```js
+export class ReactiveEffect {
+  // ....
+
+  // fn 用户编写的函数
+  // 如果fn中依赖的数据发生变化后，需要重新调用 -> run()
+  constructor(public fn, public scheduler) {}
+  
+  // ...
+}
+
+
+
+export function effect(fn, options?: ReactiveEffectOptions) {
+  // 创建一个 effect，只要依赖的属性变化了就要执行回调
+  const _effect = new ReactiveEffect(fn, () => {
+    // scheduler
+    _effect.run();
+  });
+
+  // 直接触发一次
+  _effect.run();
+
+  if (options) {
+    // 用用户传递的覆盖掉内置的，比如 scheduler
+    Object.assign(_effect, options);
+  }
+
+  const runner = _effect.run.bind(_effect);
+  runner.effect = _effect; // 可以在 runner 方法上获取到 effect 的引用
+
+  // 返回 runner 函数，外部使用可以自己让其重新 run
+  return runner;
+}
+```
+
+实现也很简单：
+
+- 当有传 options 参数，那么使用传递的覆盖掉内置的 scheduler
+- 定义一个 runner 为 effect.run()，返回，即可在外部访问这个 run
+
+
+
+#### 深度代理
+
+当绑定的属性是深层对象时，需要将要将里面的对象也转换成响应式
+
+
+
+**实现：**
+
+```ts
+export const mutableHandlers: ProxyHandler<any> = {
+  get(target, key, recevier) {
+
+    // ...
+
+    let res = Reflect.get(target, key, recevier);
+
+    if (isObject(res)) {
+      // 当取的值也是对象的时候，需要对这个对象在进行代理，递归代理
+      return reactive(res);
+    }
+
+    return res;
+  },
+  set(target, key, value, recevier) {
+    // ...
+  },
+};
+```
+
+
+
+#### 总结 reactive
+
+![](./imgs/img5.png)
 
 - 首先，通过 reactive 函数，利用 Proxy 代理，将数据转换成响应式的
+  - 当是深层对象，要将里面的对象也转换成响应式
 - 然后，effect 执行副作用函数，在副作用函数中如果访问了响应式对象属性，那么会触发代理对象的 get 函数
 - 在代理对象的 get 函数中，会对访问的属性进行依赖收集
   - 但是这里会有重复收集依赖的问题，所以在执行 effect 副作用函数之前（即还没有触发代理对象的 get 之前），先将上一次收集的依赖进行预清理，
 - 然后在进行代理对象的修改时，触发代理对象的 set 函数，在这里进行派发更新
+
+
+
+### ref
+
+ref 是基于 reactive 实现的，内部实际上使用的是 reactive
+
+```ts
+// 类似 reactive({ value: true })
+const flag = ref(true)
+```
+
+
+
+#### 实现 ref
+
+**基本使用：**
+
+```ts
+const state = ref('张三');
+
+const runner = effect(() => {
+  app.innerHTML = state.value;
+});
+
+setTimeout(() => {
+  state.value = '李四';
+}, 1000);
+```
+
+
+
+**实现：**
+
+```ts
+export function isRef(value) {
+  return value && value.__v_isRef;
+}
+
+
+
+export function ref(value) {
+  return createRef(value);
+}
+
+
+function createRef(rawValue) {
+  // 如果 rawValue 是 ref 对象，则直接返回
+  if (isRef(rawValue)) {
+    return rawValue;
+  }
+
+  return new RefImpl(rawValue);
+}
+
+
+class RefImpl {
+  public __v_isRef = true; // 增加 ref 标识
+  public _value; // 用来保存 ref 的值的
+  public _rawValue; // 用来保存 ref 的原始值的(即旧数据)
+  public dep; // 用于收集对应的 effect
+
+  constructor(value) {
+    this._rawValue = value
+    this._value = toReactive(value)
+  }
+
+  get value() {
+    // 收集依赖
+    trackRefValue(this);
+
+    return this._value;
+  }
+
+  set value(newValue) {
+    // 比较新旧数据有没有变化，有变化才需要派发更新
+    if (newValue !== this._rawValue) {
+      this._rawValue = newValue; // 更新值
+      this._value = toReactive(newValue);
+
+      // 派发更新
+      triggerRefValue(this);
+    }
+  }
+}
+```
+
+ref 是基于 reactive 的，如果是基本类型，直接取值，如果是对象，使用 toReactive 转换为响应式对象
+
+
+
+**依赖收集：**
+
+```ts
+export function trackRefValue(ref) {
+  if (activeEffect) {
+    trackEffect(
+      activeEffect,
+      (ref.dep = ref.dep || createDep(() => (ref.dep = undefined), "undefined"))
+    );
+  }
+}
+```
+
+可以看到，是调用的 trackEffect。此时 activeEffect 是在执行副作用函数 effect 时调用 effect.run 赋值上的
+
+
+
+**派发更新：**
+
+```ts
+export function triggerRefValue(ref) {
+  let dep = ref.dep;
+  if (dep) {
+    triggerEffects(dep); // 触发依赖更新
+  }
+}
+```
+
+可以看到，调用的 triggerEffects
+
+
+
+#### 实现 toRef 与 toRefs
+
+
+
+**基本使用：**
+
+```ts
+const state = reactive({ name: '张三', age: 18 });
+
+const stateRef = toRef(state, 'name');
+
+const stateRefs = toRefs(state);
+
+const { age } = stateRefs;
+
+const runner = effect(() => {
+  app.innerHTML = `name: ${stateRef.value}, age: ${age.value}`;
+});
+
+setTimeout(() => {
+  stateRef.value = '李四';
+  age.value = 20;
+}, 1000);
+```
+
+toRef 与 toRefs：
+
+- toRef：可以为**响应式对象(`reactive`)**的某个属性创建一个 ref 引用，**保持对该属性的响应性**。场景：
+  - 提取单个属性保持响应性
+  - 需要单独操作某个响应式对象属性时
+- toRefs：将一个响应式对象转换为普通对象，**但是这个普通对象可以解构而不会失去响应性**
+
+
+
+**实现：**
+
+```ts
+class ObjectRefImpl {
+  public __v_isRef = true; // 增加 ref 标识
+
+  constructor(public _object, public _key) {}
+
+  get value() {
+    return this._object[this._key];
+  }
+
+  set value(newValue) {
+    this._object[this._key] = newValue;
+  }
+}
+
+export function toRef(object, key) {
+  return new ObjectRefImpl(object, key);
+}
+
+export function toRefs(object) {
+  const res = {};
+  for (let key in object) {
+    // 挨个属性调用 toRef
+    res[key] = toRef(object, key);
+  }
+  return res;
+}
+```
+
+主要是 ObjectRefImpl 类，将访问和设置值变为 getter 和 setter 形式
+
+
+
+#### 实现 proxyRef
+
+proxyRef 作用：自动解包 ref 引用，使得在访问对象属性时不需要显式使用 `.value`
+
+这个方法比较少手动使用，一般在模版渲染的时候，自动使用，所以在模版中的 ref 不需要 .value
+
+
+
+**使用：**
+
+```ts
+const state = reactive({ name: '张三', age: 18 });
+
+const stateRefs = toRefs(state);
+
+const proxyState = proxyRefs({ ...stateRefs });
+
+effect(() => {
+  // 使得 ref 不用使用 .value 就可以访问到值
+  app.innerHTML = `name: ${proxyState.name}, age: ${proxyState.age}`;
+});
+```
+
+
+
+**实现：**
+
+```ts
+export function proxyRefs(objectWithRef) {
+  // 通过 proxy 代理
+  return new Proxy(objectWithRef, {
+    get(target, key, receiver) {
+      let r = Reflect.get(target, key, receiver);
+
+      // 如果 r 是 ref 对象，则返回 r.value，外部使用就不需要 .value 了
+      return r.__v_isRef ? r.value : r;
+    },
+    set(target, key, value, receiver) {
+      const oldValue = target[key];
+      if (oldValue.__v_isRef) {
+        oldValue.value = value; // 如果老值是 ref 需要给 ref 赋值
+        return true;
+      } else {
+        return Reflect.set(target, key, value, receiver);
+      }
+    },
+  });
+}
+```
+
+通过 Proxy 将对象转换为响应性。通过 getter 和 setter 拦截访问和设置值，自动补上 .value
+
+
+
+### computed
+
+
+
+### watch
+
+
+
+#### 实现 watch
+
+
+
+#### 实现 watchEffect
+
+
+
+
+
