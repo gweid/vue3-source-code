@@ -11,7 +11,7 @@ const proxyMap = new WeakMap();
  * @returns 代理后的结果
  */
 function createReactiveObject(target) {
-  // 统一做判断，响应式对象必须是对象
+  // 统一做判断，响应式对象必须是对象，使用的是 typeof 判断，支持 {} 和 []
   if (!isObject(target)) {
     return target;
   }

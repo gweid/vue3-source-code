@@ -35,17 +35,20 @@ export const mutableHandlers: ProxyHandler<any> = {
     return res;
   },
   set(target, key, value, recevier) {
-    // 找到属性 让对应的 effect 重新执行
 
+    // 获取老值
     let oldValue = target[key];
 
+    // 设置新值
     let result = Reflect.set(target, key, value, recevier);
 
+    // 新旧值不一致，需要派发更新
     if (oldValue !== value) {
-      // 需要触发页面更新
+      // 派发更新（更新页面）
       trigger(target, key, value, oldValue);
     }
-    // 触发更新 todo...
+
+    // 返回新值
     return result;
   },
 };

@@ -18,7 +18,7 @@ export const createDep = (
   const dep = new Map() as Dep; // 创建的收集器
 
   dep.cleanup = cleanup;
-  dep.name = key; // 标识这个映射表是给哪个属性服务的
+  dep.name = key; // 标识这个 effect 是给哪个属性服务的
 
   return dep;
 };

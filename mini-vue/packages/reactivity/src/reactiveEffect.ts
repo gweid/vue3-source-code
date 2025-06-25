@@ -1,7 +1,8 @@
 import { activeEffect, trackEffect, triggerEffects } from "./effect";
-import { createDep } from "./dep";
+import { type Dep, createDep } from "./dep";
 
-const targetMap = new WeakMap(); // 存放依赖收集的关系
+type KeyToDepMap = Map<any, Dep>
+const targetMap = new WeakMap<object, KeyToDepMap>(); // 存放依赖收集的关系
 
 
 /**
@@ -24,8 +25,7 @@ export function track(target, key) {
   // 因此，依赖收集只发生在 effect 内部，确保只有真正需要响应式更新的代码才会被收集
   if (activeEffect) {
 
-    // 依赖收集的格式如下：
-    // targetMap: { obj: { 属性：Map: { effect, effect, effect } } }
+    // 依赖收集的格式如下：WeakMap<target, Map<key, Dep>>
     // {
     //     { name: 'jw', age: 30 }: {
     //         name: {
@@ -43,6 +43,7 @@ export function track(target, key) {
 
     let dep = depsMap.get(key);
 
+    // 不存在再回收集，避免重复收集依赖
     if (!dep) {
       depsMap.set(
         key,
@@ -58,16 +59,26 @@ export function track(target, key) {
   }
 }
 
+/**
+ * 派发更新
+ * @param target 响应式对象
+ * @param key 需要更新的属性
+ * @param newValue 新值
+ * @param oldValue 老值
+ * @returns 
+ */
 export function trigger(target, key, newValue, oldValue) {
   const depsMap = targetMap.get(target);
 
   if (!depsMap) {
-    // 找不到对象 直接return即可
+    // 找不到，说明没有存储副作用函数，直接 return 即可
     return;
   }
+
   let dep = depsMap.get(key);
+
   if (dep) {
-    // 修改的属性对应了effect
+    // 修改的属性对应 effect 数组
     triggerEffects(dep);
   }
 }

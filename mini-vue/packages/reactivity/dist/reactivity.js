@@ -42,12 +42,12 @@ var ReactiveEffect = class {
     let lastEffect = activeEffect;
     try {
       activeEffect = this;
-      preCleanEffect(this);
+      preCleanupEffect(this);
       this._running++;
       return this.fn();
     } finally {
       this._running--;
-      postCleanEffect(this);
+      postCleanupEffect(this);
       activeEffect = lastEffect;
     }
   }
@@ -55,8 +55,8 @@ var ReactiveEffect = class {
   stop() {
     if (this.active) {
       this.active = false;
-      preCleanEffect(this);
-      postCleanEffect(this);
+      preCleanupEffect(this);
+      postCleanupEffect(this);
     }
   }
 };
@@ -86,11 +86,11 @@ function triggerEffects(dep) {
     }
   }
 }
-function preCleanEffect(effect2) {
+function preCleanupEffect(effect2) {
   effect2._depsLength = 0;
   effect2._trackId++;
 }
-function postCleanEffect(effect2) {
+function postCleanupEffect(effect2) {
   if (effect2.deps.length > effect2._depsLength) {
     for (let i = effect2._depsLength; i < effect2.deps.length; i++) {
       cleanDepEffect(effect2.deps[i], effect2);

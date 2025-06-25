@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // 原生的
+      // import {
+      //   reactive,
+      //   effect,
+      //   ref,
+      //   toRef,
+      //   toRefs,
+      // } from "/node_modules/vue/dist/vue.esm-browser.js";
+
+      // 从 mini-vue 引入
+      import {
+        reactive,
+        effect,
+        ref,
+        toRef,
+        toRefs,
+      } from "../../packages/reactivity/dist/reactivity.js";
+
+      const state = reactive({ flag: true, name: "jw", age: 18 });
+
+      // effect(() => {
+      //   app.innerHTML = state.flag ? state.name + state.name : state.age;
+      // });
+
+      effect(() => {
+        app.innerHTML = state.name + state.name + state.name;
+      });
+
+      // effect(() => {
+      //   console.log(state.name);
+      // })
+
+      // 变更，触发派发更新（因为上面都对 state.name 进行了依赖收集）
+      // setTimeout(() => {
+      //   state.flag = false;
+
+      //   setTimeout(() => {
+      //     state.name = 'handson jw'
+      //   }, 500)
+      // }, 1000);
+
+    </script>
+  </body>
+</html>
