@@ -81,7 +81,7 @@
 
      
 
-4. 在 vue 源码目录下，新建 debug 目录，里面新建 index.html，用于调试
+4. 在 vue 源码同一层级目录下，新建 vue-debug 目录，里面新建 index.html，用于调试
 
    ```html
    <!DOCTYPE html>
@@ -145,13 +145,13 @@
 ```text
 vue-source-code
 ├── vue                          // vue 源码目录
-│   ├── debug                    // 调试 vue 源码的项目
-│   │   ├── index.html           // 具体调试文件
 │   ├── packages
 │   │   ├── vue
 │   ├── package.json
 │   ├── pnpm-lock.yaml
 │   └── rollup.config.js
+├── vue-debug                    // 调试 vue 源码的项目
+│   ├── index.html               // 具体调试文件
 ├── .gitignore
 └── readme.md
 ```
