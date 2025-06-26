@@ -44,8 +44,6 @@ mini-vue
 
 ## reactivity
 
-
-
 响应式系统相关
 
 
@@ -1616,3 +1614,12 @@ function doWatch(source, cb, { deep, immediate }) {
 
 
 
+## runtime
+
+运行时相关
+
+
+
+## compiler
+
+编译时相关

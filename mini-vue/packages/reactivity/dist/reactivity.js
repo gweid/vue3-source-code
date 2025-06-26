@@ -331,7 +331,7 @@ function computed(getterOrOptions) {
   return new ComputedRefImpl(getter, setter);
 }
 
-// packages/reactivity/src/apiWatch.ts
+// packages/runtime-core/src/apiWatch.ts
 function watch(source, cb, options = {}) {
   return doWatch(source, cb, options);
 }

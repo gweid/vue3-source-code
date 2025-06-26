@@ -6,7 +6,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/dev.js reactivity -f esm"
+    "dev": "node scripts/dev.js vue -f esm"
   },
   "keywords": [],
   "author": "",

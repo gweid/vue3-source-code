@@ -31,33 +31,33 @@
         computed,
         watch,
         watchEffect
-      } from "../../packages/reactivity/dist/reactivity.js";
+      } from "../../packages/vue/dist/vue.js";
 
 
       // ------------------------------- watch 基本使用 -------------------------------
-      // const numState = ref(18);
-      // const state = reactive({ name: "张三" });
+      const numState = ref(18);
+      const state = reactive({ name: "张三" });
 
-      // effect(() => {
-      //   app.innerHTML = `学号: ${numState.value} --- 姓名: ${state.name}`;
-      // });
+      effect(() => {
+        app.innerHTML = `学号: ${numState.value} --- 姓名: ${state.name}`;
+      });
 
-      // watch(numState, (newVal, oldVal) => {
-      //   console.log('numState 变化了：', newVal, oldVal);
-      // });
+      watch(numState, (newVal, oldVal) => {
+        console.log('numState 变化了：', newVal, oldVal);
+      });
 
-      // watch(state, (newVal, oldVal) => {
-      //   console.log('state 变化了：', newVal, oldVal);
-      // });
+      watch(state, (newVal, oldVal) => {
+        console.log('state 变化了：', newVal, oldVal);
+      });
 
-      // watch(() => state.name, (newVal, oldVal) => {
-      //   console.log('state.name 变化了：', newVal, oldVal);
-      // });
+      watch(() => state.name, (newVal, oldVal) => {
+        console.log('state.name 变化了：', newVal, oldVal);
+      });
 
-      // setTimeout(() => {
-      //   state.name = "李四";
-      //   numState.value = 20;
-      // }, 1000);
+      setTimeout(() => {
+        state.name = "李四";
+        numState.value = 20;
+      }, 1000);
 
 
 
@@ -94,20 +94,20 @@
 
       // ------------------------------- watchEffect -------------------------------
 
-      const state = reactive({ name: "张三" });
+      // const state = reactive({ name: "张三" });
 
-      effect(() => {
-        app.innerHTML = state.name;
-      });
+      // effect(() => {
+      //   app.innerHTML = state.name;
+      // });
 
-      watchEffect(() => {
-        app.innerHTML = state.name;
-        console.log('state.name 变化了：', state.name);
-      });
+      // watchEffect(() => {
+      //   app.innerHTML = state.name;
+      //   console.log('state.name 变化了：', state.name);
+      // });
 
-      setTimeout(() => {
-        state.name = "李四";
-      }, 1000);
+      // setTimeout(() => {
+      //   state.name = "李四";
+      // }, 1000);
     </script>
   </body>
 </html>

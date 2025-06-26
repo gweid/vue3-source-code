@@ -1,167 +1,3 @@
-// packages/shared/src/index.ts
-function isObject(value) {
-  return typeof value === "object" && value !== null;
-}
-function isFunction(value) {
-  return typeof value == "function";
-}
-function isString(value) {
-  return typeof value == "string";
-}
-var hasOwnProperty = Object.prototype.hasOwnProperty;
-var hasOwn = (value, key) => hasOwnProperty.call(value, key);
-
-// packages/runtime-core/src/components/Teleport.ts
-var Teleport = {
-  __isTeleport: true,
-  remove(vnode, unmountChildren) {
-    const { shapeFlag, children } = vnode;
-    if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
-      unmountChildren(children);
-    }
-  },
-  process(n1, n2, container, anchor, parentComponent, internals) {
-    let { mountChildren, patchChildren, move } = internals;
-    if (!n1) {
-      const target = n2.target = document.querySelector(n2.props.to);
-      if (target) {
-        mountChildren(n2.children, target, parentComponent);
-      }
-    } else {
-      patchChildren(n1, n2, n2.target, parentComponent);
-      if (n2.props.to !== n1.props.to) {
-        const nextTarget = document.querySelector(n2.props.to);
-        n2.children.forEach((child) => move(child, nextTarget, anchor));
-      }
-    }
-  }
-};
-var isTeleport = (value) => value.__isTeleport;
-
-// packages/runtime-core/src/createVnode.ts
-var Text = Symbol("Text");
-var Fragment = Symbol("Fragment");
-function isVnode(value) {
-  return value?.__v_isVnode;
-}
-function isSameVnode(n1, n2) {
-  return n1.type === n2.type && n1.key === n2.key;
-}
-function createVnode(type, props, children, patchFlag) {
-  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isTeleport(type) ? 64 /* TELEPORT */ : isObject(type) ? 4 /* STATEFUL_COMPONENT */ : isFunction(type) ? 2 /* FUNCTIONAL_COMPONENT */ : 0;
-  const vnode = {
-    __v_isVnode: true,
-    type,
-    props,
-    children,
-    key: props?.key,
-    // diff算法后面需要的key
-    el: null,
-    // 虚拟节点需要对应的真实节点是谁
-    shapeFlag,
-    ref: props?.ref,
-    patchFlag
-  };
-  if (currentBlock && patchFlag > 0) {
-    currentBlock.push(vnode);
-  }
-  if (children) {
-    if (Array.isArray(children)) {
-      vnode.shapeFlag |= 16 /* ARRAY_CHILDREN */;
-    } else if (isObject(children)) {
-      vnode.shapeFlag |= 32 /* SLOTS_CHILDREN */;
-    } else {
-      children = String(children);
-      vnode.shapeFlag |= 8 /* TEXT_CHILDREN */;
-    }
-  }
-  return vnode;
-}
-var currentBlock = null;
-function openBlock() {
-  currentBlock = [];
-}
-function closeBlock() {
-  currentBlock = null;
-}
-function setupBlock(vnode) {
-  vnode.dynamicChildren = currentBlock;
-  closeBlock();
-  return vnode;
-}
-function createElementBlock(type, props, children, patchFlag) {
-  const vnode = createVnode(type, props, children, patchFlag);
-  return setupBlock(vnode);
-}
-function toDisplayString(value) {
-  return isString(value) ? value : value == null ? "" : isObject(value) ? JSON.stringify(value) : String(value);
-}
-
-// packages/runtime-core/src/h.ts
-function h(type, propsOrChildren, children) {
-  let l = arguments.length;
-  if (l === 2) {
-    if (isObject(propsOrChildren) && !Array.isArray(propsOrChildren)) {
-      if (isVnode(propsOrChildren)) {
-        return createVnode(type, null, [propsOrChildren]);
-      } else {
-        return createVnode(type, propsOrChildren);
-      }
-    }
-    return createVnode(type, null, propsOrChildren);
-  } else {
-    if (l > 3) {
-      children = Array.from(arguments).slice(2);
-    }
-    if (l == 3 && isVnode(children)) {
-      children = [children];
-    }
-    return createVnode(type, propsOrChildren, children);
-  }
-}
-
-// packages/runtime-core/src/seq.ts
-function getSequence(arr) {
-  const result = [0];
-  const p = result.slice(0);
-  let start;
-  let end;
-  let middle;
-  const len = arr.length;
-  for (let i = 0; i < len; i++) {
-    const arrI = arr[i];
-    if (arrI !== 0) {
-      let resultLastIndex = result[result.length - 1];
-      if (arr[resultLastIndex] < arrI) {
-        p[i] = result[result.length - 1];
-        result.push(i);
-        continue;
-      }
-    }
-    start = 0;
-    end = result.length - 1;
-    while (start < end) {
-      middle = (start + end) / 2 | 0;
-      if (arr[result[middle]] < arrI) {
-        start = middle + 1;
-      } else {
-        end = middle;
-      }
-    }
-    if (arrI < arr[result[start]]) {
-      p[i] = result[start - 1];
-      result[start] = i;
-    }
-  }
-  let l = result.length;
-  let last = result[l - 1];
-  while (l-- > 0) {
-    result[l] = last;
-    last = p[last];
-  }
-  return result;
-}
-
 // packages/reactivity/src/effect.ts
 var activeEffect;
 function effect(fn, options) {
@@ -269,6 +105,54 @@ function cleanDepEffect(dep, effect2) {
     dep.cleanup();
   }
 }
+
+// packages/shared/src/shapeFlags.ts
+var ShapeFlags = /* @__PURE__ */ ((ShapeFlags2) => {
+  ShapeFlags2[ShapeFlags2["ELEMENT"] = 1] = "ELEMENT";
+  ShapeFlags2[ShapeFlags2["FUNCTIONAL_COMPONENT"] = 2] = "FUNCTIONAL_COMPONENT";
+  ShapeFlags2[ShapeFlags2["STATEFUL_COMPONENT"] = 4] = "STATEFUL_COMPONENT";
+  ShapeFlags2[ShapeFlags2["TEXT_CHILDREN"] = 8] = "TEXT_CHILDREN";
+  ShapeFlags2[ShapeFlags2["ARRAY_CHILDREN"] = 16] = "ARRAY_CHILDREN";
+  ShapeFlags2[ShapeFlags2["SLOTS_CHILDREN"] = 32] = "SLOTS_CHILDREN";
+  ShapeFlags2[ShapeFlags2["TELEPORT"] = 64] = "TELEPORT";
+  ShapeFlags2[ShapeFlags2["SUSPENSE"] = 128] = "SUSPENSE";
+  ShapeFlags2[ShapeFlags2["COMPONENT_SHOULD_KEEP_ALIVE"] = 256] = "COMPONENT_SHOULD_KEEP_ALIVE";
+  ShapeFlags2[ShapeFlags2["COMPONENT_KEPT_ALIVE"] = 512] = "COMPONENT_KEPT_ALIVE";
+  ShapeFlags2[ShapeFlags2["COMPONENT"] = 6] = "COMPONENT";
+  return ShapeFlags2;
+})(ShapeFlags || {});
+
+// packages/shared/src/patchFlags.ts
+var PatchFlags = /* @__PURE__ */ ((PatchFlags2) => {
+  PatchFlags2[PatchFlags2["TEXT"] = 1] = "TEXT";
+  PatchFlags2[PatchFlags2["CLASS"] = 2] = "CLASS";
+  PatchFlags2[PatchFlags2["STYLE"] = 4] = "STYLE";
+  PatchFlags2[PatchFlags2["PROPS"] = 8] = "PROPS";
+  PatchFlags2[PatchFlags2["FULL_PROPS"] = 16] = "FULL_PROPS";
+  PatchFlags2[PatchFlags2["NEED_HYDRATION"] = 32] = "NEED_HYDRATION";
+  PatchFlags2[PatchFlags2["STABLE_FRAGMENT"] = 64] = "STABLE_FRAGMENT";
+  PatchFlags2[PatchFlags2["KEYED_FRAGMENT"] = 128] = "KEYED_FRAGMENT";
+  PatchFlags2[PatchFlags2["UNKEYED_FRAGMENT"] = 256] = "UNKEYED_FRAGMENT";
+  PatchFlags2[PatchFlags2["NEED_PATCH"] = 512] = "NEED_PATCH";
+  PatchFlags2[PatchFlags2["DYNAMIC_SLOTS"] = 1024] = "DYNAMIC_SLOTS";
+  PatchFlags2[PatchFlags2["DEV_ROOT_FRAGMENT"] = 2048] = "DEV_ROOT_FRAGMENT";
+  PatchFlags2[PatchFlags2["HOISTED"] = -1] = "HOISTED";
+  PatchFlags2[PatchFlags2["BAIL"] = -2] = "BAIL";
+  return PatchFlags2;
+})(PatchFlags || {});
+
+// packages/shared/src/index.ts
+function isObject(value) {
+  return typeof value === "object" && value !== null;
+}
+function isFunction(value) {
+  return typeof value == "function";
+}
+function isString(value) {
+  return typeof value == "string";
+}
+var hasOwnProperty = Object.prototype.hasOwnProperty;
+var hasOwn = (value, key) => hasOwnProperty.call(value, key);
 
 // packages/reactivity/src/dep.ts
 var createDep = (cleanup, key) => {
@@ -560,6 +444,157 @@ function traverse(source, depth, currentDepth = 0, seen = /* @__PURE__ */ new Se
   return source;
 }
 
+// packages/runtime-core/src/components/Teleport.ts
+var Teleport = {
+  __isTeleport: true,
+  remove(vnode, unmountChildren) {
+    const { shapeFlag, children } = vnode;
+    if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+      unmountChildren(children);
+    }
+  },
+  process(n1, n2, container, anchor, parentComponent, internals) {
+    let { mountChildren, patchChildren, move } = internals;
+    if (!n1) {
+      const target = n2.target = document.querySelector(n2.props.to);
+      if (target) {
+        mountChildren(n2.children, target, parentComponent);
+      }
+    } else {
+      patchChildren(n1, n2, n2.target, parentComponent);
+      if (n2.props.to !== n1.props.to) {
+        const nextTarget = document.querySelector(n2.props.to);
+        n2.children.forEach((child) => move(child, nextTarget, anchor));
+      }
+    }
+  }
+};
+var isTeleport = (value) => value.__isTeleport;
+
+// packages/runtime-core/src/createVnode.ts
+var Text = Symbol("Text");
+var Fragment = Symbol("Fragment");
+function isVnode(value) {
+  return value?.__v_isVnode;
+}
+function isSameVnode(n1, n2) {
+  return n1.type === n2.type && n1.key === n2.key;
+}
+function createVnode(type, props, children, patchFlag) {
+  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isTeleport(type) ? 64 /* TELEPORT */ : isObject(type) ? 4 /* STATEFUL_COMPONENT */ : isFunction(type) ? 2 /* FUNCTIONAL_COMPONENT */ : 0;
+  const vnode = {
+    __v_isVnode: true,
+    type,
+    props,
+    children,
+    key: props?.key,
+    // diff算法后面需要的key
+    el: null,
+    // 虚拟节点需要对应的真实节点是谁
+    shapeFlag,
+    ref: props?.ref,
+    patchFlag
+  };
+  if (currentBlock && patchFlag > 0) {
+    currentBlock.push(vnode);
+  }
+  if (children) {
+    if (Array.isArray(children)) {
+      vnode.shapeFlag |= 16 /* ARRAY_CHILDREN */;
+    } else if (isObject(children)) {
+      vnode.shapeFlag |= 32 /* SLOTS_CHILDREN */;
+    } else {
+      children = String(children);
+      vnode.shapeFlag |= 8 /* TEXT_CHILDREN */;
+    }
+  }
+  return vnode;
+}
+var currentBlock = null;
+function openBlock() {
+  currentBlock = [];
+}
+function closeBlock() {
+  currentBlock = null;
+}
+function setupBlock(vnode) {
+  vnode.dynamicChildren = currentBlock;
+  closeBlock();
+  return vnode;
+}
+function createElementBlock(type, props, children, patchFlag) {
+  const vnode = createVnode(type, props, children, patchFlag);
+  return setupBlock(vnode);
+}
+function toDisplayString(value) {
+  return isString(value) ? value : value == null ? "" : isObject(value) ? JSON.stringify(value) : String(value);
+}
+
+// packages/runtime-core/src/h.ts
+function h(type, propsOrChildren, children) {
+  let l = arguments.length;
+  if (l === 2) {
+    if (isObject(propsOrChildren) && !Array.isArray(propsOrChildren)) {
+      if (isVnode(propsOrChildren)) {
+        return createVnode(type, null, [propsOrChildren]);
+      } else {
+        return createVnode(type, propsOrChildren);
+      }
+    }
+    return createVnode(type, null, propsOrChildren);
+  } else {
+    if (l > 3) {
+      children = Array.from(arguments).slice(2);
+    }
+    if (l == 3 && isVnode(children)) {
+      children = [children];
+    }
+    return createVnode(type, propsOrChildren, children);
+  }
+}
+
+// packages/runtime-core/src/seq.ts
+function getSequence(arr) {
+  const result = [0];
+  const p = result.slice(0);
+  let start;
+  let end;
+  let middle;
+  const len = arr.length;
+  for (let i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      let resultLastIndex = result[result.length - 1];
+      if (arr[resultLastIndex] < arrI) {
+        p[i] = result[result.length - 1];
+        result.push(i);
+        continue;
+      }
+    }
+    start = 0;
+    end = result.length - 1;
+    while (start < end) {
+      middle = (start + end) / 2 | 0;
+      if (arr[result[middle]] < arrI) {
+        start = middle + 1;
+      } else {
+        end = middle;
+      }
+    }
+    if (arrI < arr[result[start]]) {
+      p[i] = result[start - 1];
+      result[start] = i;
+    }
+  }
+  let l = result.length;
+  let last = result[l - 1];
+  while (l-- > 0) {
+    result[l] = last;
+    last = p[last];
+  }
+  return result;
+}
+
 // packages/runtime-core/src/scheduler.ts
 var queue = [];
 var isFlushing = false;
@@ -677,7 +712,7 @@ function setupComponent(instance) {
   initSlots(instance, vnode.children);
   instance.proxy = new Proxy(instance, handler);
   const { data = () => {
-  }, render, setup } = vnode.type;
+  }, render: render2, setup } = vnode.type;
   if (setup) {
     const setupContext = {
       // ....
@@ -707,7 +742,7 @@ function setupComponent(instance) {
     instance.data = reactive(data.call(instance.proxy));
   }
   if (!instance.render) {
-    instance.render = render;
+    instance.render = render2;
   }
 }
 var currentInstance = null;
@@ -821,7 +856,7 @@ var KeepAlive = {
 var isKeepAlive = (value) => value.type.__isKeepAlive;
 
 // packages/runtime-core/src/renderer.ts
-function createRenderer(renderOptions) {
+function createRenderer(renderOptions2) {
   const {
     insert: hostInsert,
     remove: hostRemove,
@@ -832,7 +867,7 @@ function createRenderer(renderOptions) {
     parentNode: hostParentNode,
     nextSibling: hostNextSibling,
     patchProp: hostPatchProp
-  } = renderOptions;
+  } = renderOptions2;
   const normalize = (children) => {
     if (Array.isArray(children)) {
       for (let i = 0; i < children.length; i++) {
@@ -1060,9 +1095,9 @@ function createRenderer(renderOptions) {
     Object.assign(instance.slots, next.children);
   };
   function renderComponent(instance) {
-    const { render: render2, vnode, proxy, props, attrs, slots } = instance;
+    const { render: render3, vnode, proxy, props, attrs, slots } = instance;
     if (vnode.shapeFlag & 4 /* STATEFUL_COMPONENT */) {
-      return render2.call(proxy, proxy);
+      return render3.call(proxy, proxy);
     } else {
       return vnode.type(attrs, { slots });
     }
@@ -1241,7 +1276,7 @@ function createRenderer(renderOptions) {
       }
     }
   };
-  const render = (vnode, container) => {
+  const render2 = (vnode, container) => {
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, null);
@@ -1252,7 +1287,7 @@ function createRenderer(renderOptions) {
     }
   };
   return {
-    render
+    render: render2
   };
 }
 
@@ -1433,12 +1468,109 @@ function defineAsyncComponent(options) {
     }
   };
 }
+
+// packages/runtime-dom/src/nodeOps.ts
+var nodeOps = {
+  // 如果第三个元素不传递 === appendChild
+  insert: (el, parent, anchor) => parent.insertBefore(el, anchor || null),
+  // appendChild  parent.insertBefore(el,null)
+  remove(el) {
+    const parent = el.parentNode;
+    parent && parent.removeChild(el);
+  },
+  createElement: (type) => document.createElement(type),
+  createText: (text) => document.createTextNode(text),
+  setText: (node, text) => node.nodeValue = text,
+  // 设置文本
+  setElementText: (el, text) => el.textContent = text,
+  parentNode: (node) => node.parentNode,
+  nextSibling: (node) => node.nextSibling
+};
+
+// packages/runtime-dom/src/modules/patchAttr.ts
+function patchAttr(el, key, value) {
+  if (value == null) {
+    el.removeAttribute(key);
+  } else {
+    el.setAttribute(key, value);
+  }
+}
+
+// packages/runtime-dom/src/modules/patchClass.ts
+function patchClass(el, value) {
+  if (value == null) {
+    el.removeAttribute("class");
+  } else {
+    el.className = value;
+  }
+}
+
+// packages/runtime-dom/src/modules/patchEvent.ts
+function createInvoker(value) {
+  const invoker = (e) => invoker.value(e);
+  invoker.value = value;
+  return invoker;
+}
+function patchEvent(el, name, nextValue) {
+  const invokers = el._vei || (el._vei = {});
+  const eventName = name.slice(2).toLowerCase();
+  const exisitingInvokers = invokers[name];
+  if (nextValue && exisitingInvokers) {
+    return exisitingInvokers.value = nextValue;
+  }
+  if (nextValue) {
+    const invoker = invokers[name] = createInvoker(nextValue);
+    return el.addEventListener(eventName, invoker);
+  }
+  if (exisitingInvokers) {
+    el.removeEventListener(eventName, exisitingInvokers);
+    invokers[name] = void 0;
+  }
+}
+
+// packages/runtime-dom/src/modules/patchStyle.ts
+function patchStyle(el, prevValue, nextValue) {
+  let style = el.style;
+  for (let key in nextValue) {
+    style[key] = nextValue[key];
+  }
+  if (prevValue) {
+    for (let key in prevValue) {
+      if (nextValue) {
+        if (nextValue[key] == null) {
+          style[key] = null;
+        }
+      }
+    }
+  }
+}
+
+// packages/runtime-dom/src/patchProp.ts
+function patchProp(el, key, prevValue, nextValue) {
+  if (key === "class") {
+    return patchClass(el, nextValue);
+  } else if (key === "style") {
+    return patchStyle(el, prevValue, nextValue);
+  } else if (/^on[^a-z]/.test(key)) {
+    return patchEvent(el, key, nextValue);
+  } else {
+    return patchAttr(el, key, nextValue);
+  }
+}
+
+// packages/runtime-dom/src/index.ts
+var renderOptions = Object.assign({ patchProp }, nodeOps);
+var render = (vnode, container) => {
+  return createRenderer(renderOptions).render(vnode, container);
+};
 export {
   ComputedRefImpl,
   Fragment,
   KeepAlive,
   LifeCycles,
+  PatchFlags,
   ReactiveEffect,
+  ShapeFlags,
   Teleport,
   Text,
   Transition,
@@ -1455,13 +1587,17 @@ export {
   effect,
   getCurrentInstance,
   h,
+  hasOwn,
   initSlots,
   inject,
   invokeArray,
+  isFunction,
   isKeepAlive,
+  isObject,
   isReactive,
   isRef,
   isSameVnode,
+  isString,
   isTeleport,
   isVnode,
   onBeforeMount,
@@ -1473,6 +1609,7 @@ export {
   proxyRefs,
   reactive,
   ref,
+  render,
   resolveTransitionProps,
   setCurrentInstance,
   setupBlock,
@@ -1489,4 +1626,4 @@ export {
   watch,
   watchEffect
 };
-//# sourceMappingURL=runtime-core.js.map
+//# sourceMappingURL=vue.js.map

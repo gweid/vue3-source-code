@@ -252,6 +252,7 @@ function getSequence(arr) {
 }
 
 // packages/reactivity/src/effect.ts
+var activeEffect;
 function effect(fn, options) {
   const _effect = new ReactiveEffect(fn, () => {
     _effect.run();
@@ -264,39 +265,28 @@ function effect(fn, options) {
   runner.effect = _effect;
   return runner;
 }
-var activeEffect;
-function preCleanEffect(effect2) {
-  effect2._depsLength = 0;
-  effect2._trackId++;
-}
-function postCleanEffect(effect2) {
-  if (effect2.deps.length > effect2._depsLength) {
-    for (let i = effect2._depsLength; i < effect2.deps.length; i++) {
-      cleanDepEffect(effect2.deps[i], effect2);
-    }
-    effect2.deps.length = effect2._depsLength;
-  }
-}
 var ReactiveEffect = class {
-  // 创建的effect是响应式的
+  // 创建的 effect 是响应式的
   // fn 用户编写的函数
   // 如果fn中依赖的数据发生变化后，需要重新调用 -> run()
   constructor(fn, scheduler) {
     this.fn = fn;
     this.scheduler = scheduler;
     this._trackId = 0;
-    // 用于记录当前effect执行了几次
+    // 用于记录当前 effect 执行了几次
     this._depsLength = 0;
     this._running = 0;
+    // 标记当前 effect 是否正在执行，防止递归调用，进入死循环
     this._dirtyLevel = 4 /* Dirty */;
     this.deps = [];
+    // 依赖收集数组
     this.active = true;
   }
   get dirty() {
     return this._dirtyLevel === 4 /* Dirty */;
   }
-  set dirty(v) {
-    this._dirtyLevel = v ? 4 /* Dirty */ : 0 /* NoDirty */;
+  set dirty(value) {
+    this._dirtyLevel = value ? 4 /* Dirty */ : 0 /* NoDirty */;
   }
   run() {
     this._dirtyLevel = 0 /* NoDirty */;
@@ -306,29 +296,24 @@ var ReactiveEffect = class {
     let lastEffect = activeEffect;
     try {
       activeEffect = this;
-      preCleanEffect(this);
+      preCleanupEffect(this);
       this._running++;
       return this.fn();
     } finally {
       this._running--;
-      postCleanEffect(this);
+      postCleanupEffect(this);
       activeEffect = lastEffect;
     }
   }
+  // 停止所有的 effect 不参加响应式处理
   stop() {
     if (this.active) {
       this.active = false;
-      preCleanEffect(this);
-      postCleanEffect(this);
+      preCleanupEffect(this);
+      postCleanupEffect(this);
     }
   }
 };
-function cleanDepEffect(dep, effect2) {
-  dep.delete(effect2);
-  if (dep.size == 0) {
-    dep.cleanup();
-  }
-}
 function trackEffect(effect2, dep) {
   if (dep.get(effect2) !== effect2._trackId) {
     dep.set(effect2, effect2._trackId);
@@ -355,15 +340,35 @@ function triggerEffects(dep) {
     }
   }
 }
+function preCleanupEffect(effect2) {
+  effect2._depsLength = 0;
+  effect2._trackId++;
+}
+function postCleanupEffect(effect2) {
+  if (effect2.deps.length > effect2._depsLength) {
+    for (let i = effect2._depsLength; i < effect2.deps.length; i++) {
+      cleanDepEffect(effect2.deps[i], effect2);
+    }
+    effect2.deps.length = effect2._depsLength;
+  }
+}
+function cleanDepEffect(dep, effect2) {
+  dep.delete(effect2);
+  if (dep.size == 0) {
+    dep.cleanup();
+  }
+}
 
-// packages/reactivity/src/reactiveEffect.ts
-var targetMap = /* @__PURE__ */ new WeakMap();
+// packages/reactivity/src/dep.ts
 var createDep = (cleanup, key) => {
   const dep = /* @__PURE__ */ new Map();
   dep.cleanup = cleanup;
   dep.name = key;
   return dep;
 };
+
+// packages/reactivity/src/reactiveEffect.ts
+var targetMap = /* @__PURE__ */ new WeakMap();
 function track(target, key) {
   if (activeEffect) {
     let depsMap = targetMap.get(target);
@@ -379,6 +384,7 @@ function track(target, key) {
       );
     }
     trackEffect(activeEffect, dep);
+    console.log("targetMap: ", targetMap);
   }
 }
 function trigger(target, key, newValue, oldValue) {
@@ -416,7 +422,10 @@ var mutableHandlers = {
 };
 
 // packages/reactivity/src/reactive.ts
-var reactiveMap = /* @__PURE__ */ new WeakMap();
+var proxyMap = /* @__PURE__ */ new WeakMap();
+function reactive(target) {
+  return createReactiveObject(target);
+}
 function createReactiveObject(target) {
   if (!isObject(target)) {
     return target;
@@ -424,16 +433,13 @@ function createReactiveObject(target) {
   if (target["__v_isReactive" /* IS_REACTIVE */]) {
     return target;
   }
-  const exitsProxy = reactiveMap.get(target);
-  if (exitsProxy) {
-    return exitsProxy;
+  const existingProxy = proxyMap.get(target);
+  if (existingProxy) {
+    return existingProxy;
   }
   let proxy = new Proxy(target, mutableHandlers);
-  reactiveMap.set(target, proxy);
+  proxyMap.set(target, proxy);
   return proxy;
-}
-function reactive(target) {
-  return createReactiveObject(target);
 }
 function toReactive(value) {
   return isObject(value) ? reactive(value) : value;
@@ -446,24 +452,27 @@ function isReactive(value) {
 function ref(value) {
   return createRef(value);
 }
-function createRef(value) {
-  return new RefImpl(value);
+function createRef(rawValue) {
+  if (isRef(rawValue)) {
+    return rawValue;
+  }
+  return new RefImpl(rawValue);
 }
 var RefImpl = class {
-  // 用于收集对应的effect
-  constructor(rawValue) {
-    this.rawValue = rawValue;
+  // 用于收集对应的 effect
+  constructor(value) {
     this.__v_isRef = true;
-    this._value = toReactive(rawValue);
+    this._rawValue = value;
+    this._value = toReactive(value);
   }
   get value() {
     trackRefValue(this);
     return this._value;
   }
   set value(newValue) {
-    if (newValue !== this.rawValue) {
-      this.rawValue = newValue;
-      this._value = newValue;
+    if (newValue !== this._rawValue) {
+      this._rawValue = newValue;
+      this._value = toReactive(newValue);
       triggerRefValue(this);
     }
   }
@@ -483,7 +492,7 @@ function triggerRefValue(ref2) {
   }
 }
 var ObjectRefImpl = class {
-  // 增加ref标识
+  // 增加 ref 标识
   constructor(_object, _key) {
     this._object = _object;
     this._key = _key;
@@ -529,11 +538,13 @@ function isRef(value) {
 
 // packages/reactivity/src/computed.ts
 var ComputedRefImpl = class {
+  // 计算属性的依赖收集器
   constructor(getter, setter) {
     this.setter = setter;
     this.effect = new ReactiveEffect(
       () => getter(this._value),
-      // 用户的fn  state.name
+      // 用户的 fn  state.name
+      // 这个实际就是 schedule 函数
       () => {
         triggerRefValue(this);
       }
@@ -546,8 +557,8 @@ var ComputedRefImpl = class {
     }
     return this._value;
   }
-  set value(v) {
-    this.setter(v);
+  set value(newValue) {
+    this.setter(newValue);
   }
 };
 function computed(getterOrOptions) {
@@ -571,24 +582,6 @@ function watch(source, cb, options = {}) {
 }
 function watchEffect(source, options = {}) {
   return doWatch(source, null, options);
-}
-function traverse(source, depth, currentDepth = 0, seen = /* @__PURE__ */ new Set()) {
-  if (!isObject(source)) {
-    return source;
-  }
-  if (depth) {
-    if (currentDepth >= depth) {
-      return source;
-    }
-    currentDepth++;
-  }
-  if (seen.has(source)) {
-    return source;
-  }
-  for (let key in source) {
-    traverse(source[key], depth, currentDepth, seen);
-  }
-  return source;
 }
 function doWatch(source, cb, { deep, immediate }) {
   const reactiveGetter = (source2) => traverse(source2, deep === false ? 1 : void 0);
@@ -620,14 +613,14 @@ function doWatch(source, cb, { deep, immediate }) {
       effect2.run();
     }
   };
-  console.log(getter.toString());
+  console.log("=========ReactiveEffect \u7684 fn \u51FD\u6570\uFF1A", getter.toString());
   const effect2 = new ReactiveEffect(getter, job);
   if (cb) {
     if (immediate) {
       job();
     } else {
       oldValue = effect2.run();
-      console.log(oldValue, "oldValue");
+      console.log("=========oldValue\uFF1A", oldValue);
     }
   } else {
     effect2.run();
@@ -636,6 +629,24 @@ function doWatch(source, cb, { deep, immediate }) {
     effect2.stop();
   };
   return unwatch;
+}
+function traverse(source, depth, currentDepth = 0, seen = /* @__PURE__ */ new Set()) {
+  if (!isObject(source)) {
+    return source;
+  }
+  if (depth) {
+    if (currentDepth >= depth) {
+      return source;
+    }
+    currentDepth++;
+  }
+  if (seen.has(source)) {
+    return source;
+  }
+  for (let key in source) {
+    traverse(source[key], depth, currentDepth, seen);
+  }
+  return source;
 }
 
 // packages/runtime-core/src/scheduler.ts
@@ -1518,6 +1529,7 @@ var render = (vnode, container) => {
   return createRenderer(renderOptions).render(vnode, container);
 };
 export {
+  ComputedRefImpl,
   Fragment,
   KeepAlive,
   LifeCycles,
