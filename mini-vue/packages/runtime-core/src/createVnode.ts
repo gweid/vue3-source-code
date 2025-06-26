@@ -12,6 +12,14 @@ export function isSameVnode(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key;
 }
 
+/**
+ * 创建虚拟 DOM 节点
+ * @param type 元素类型
+ * @param props 元素属性
+ * @param children 子节点
+ * @param patchFlag 补丁标志
+ * @returns 虚拟 DOM 节点
+ */
 export function createVnode(type, props, children?, patchFlag?) {
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT // 元素
@@ -23,6 +31,7 @@ export function createVnode(type, props, children?, patchFlag?) {
     ? ShapeFlags.FUNCTIONAL_COMPONENT // 组件
     : 0;
 
+  // 虚拟 DOM 节点
   const vnode = {
     __v_isVnode: true,
     type,
@@ -40,6 +49,7 @@ export function createVnode(type, props, children?, patchFlag?) {
   }
 
   if (children) {
+    // 设置 子节点的 shapeFlag 标识
     if (Array.isArray(children)) {
       vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
     } else if (isObject(children)) {
@@ -49,6 +59,7 @@ export function createVnode(type, props, children?, patchFlag?) {
       vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
     }
   }
+
   return vnode;
 }
 

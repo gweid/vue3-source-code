@@ -1323,7 +1323,7 @@ export class ComputedRefImpl<T> {
     >     ```ts
     >     export class ComputedRefImpl<T> {
     >       public effect; // 计算属性依赖
-    >     
+    >         
     >       constructor(getter, public setter) {
     >         // 创建一个 effect 来关联当前计算属性的 dirty 属性
     >         this.effect = new ReactiveEffect(
@@ -1350,7 +1350,7 @@ export class ComputedRefImpl<T> {
     >       },
     >     });
     >     ```
-    >
+    >    
     >     这一段，这一段会访问 state.name，触发 state.name 的 getter 函数，进行依赖收集，因为上面将 activeEffect 设置为 computed effect，所以这里的 state.name 收集到的依赖是  computed effect
     >
     >   - 执行完之后，设置 activeEffect = lastEffect，那么此时的 activeEffect 变成了 render effect
@@ -1724,9 +1724,128 @@ Vue3 中，创建虚拟 DOM 节点（VNode）的核心函数是 h 函数
 
 
 
-h 函数：
+**h 函数：**
 
 ```ts
+/**
+ * 创建虚拟 DOM 节点
+ * @param type 元素类型
+ * @param propsOrChildren 元素属性或子节点
+ * @param children 子节点
+ * @returns 虚拟 DOM 节点
+ */
+export function h(type, propsOrChildren?, children?) {
+  let l = arguments.length;
+
+  // 参数长度是 2：h('div', '哈哈哈哈')
+  if (l === 2) {
+    // h(h1,虚拟节点|属性)
+    if (isObject(propsOrChildren) && !Array.isArray(propsOrChildren)) {
+      // 虚拟节点
+      if (isVnode(propsOrChildren)) {
+        // h('div',h('a'))
+        return createVnode(type, null, [propsOrChildren]);
+      } else {
+        // 属性
+        return createVnode(type, propsOrChildren);
+      }
+    }
+
+    return createVnode(type, null, propsOrChildren);
+  } else {
+    if (l > 3) {
+      // 参数长度大于 3，那么从第三个参数开始都是子节点
+      children = Array.from(arguments).slice(2);
+    }
+
+    if (l == 3 && isVnode(children)) {
+      children = [children];
+    }
+
+    // == 3  | == 1
+    return createVnode(type, propsOrChildren, children);
+  }
+}
+```
+
+- 判断参数的长度，分别创建虚拟 DOM
+  - 参数长度是 2，第二个参数可能是属性，或者子节点
+  - 参数长度是2，第二个参数是属性，第三个参数是子节点
+  - 参数长度是4，从第三个参数开始都是子节点
+- 最后，都是调用的 createVnode 创建虚拟 DOM
+
+
+
+**createVnode 函数：**
+
+```ts
+/**
+ * 创建虚拟 DOM 节点
+ * @param type 元素类型
+ * @param props 元素属性
+ * @param children 子节点
+ * @returns 虚拟 DOM 节点
+ */
+export function createVnode(type, props, children?) {
+  const shapeFlag = isString(type)
+    ? ShapeFlags.ELEMENT // 元素
+    : isTeleport(type)
+    ? ShapeFlags.TELEPORT
+    : isObject(type)
+    ? ShapeFlags.STATEFUL_COMPONENT
+    : isFunction(type)
+    ? ShapeFlags.FUNCTIONAL_COMPONENT // 组件
+    : 0;
+
+  // 虚拟 DOM 节点
+  const vnode = {
+    __v_isVnode: true,
+    type,
+    props,
+    children,
+    key: props?.key, // diff算法后面需要的key
+    el: null, // 虚拟节点需要对应的真实节点是谁
+    shapeFlag,
+    ref: props?.ref,
+    patchFlag,
+  };
+
+  if (currentBlock && patchFlag > 0) {
+    currentBlock.push(vnode);
+  }
+
+  if (children) {
+    // 设置 子节点的 shapeFlag 标识
+    if (Array.isArray(children)) {
+      vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
+    } else if (isObject(children)) {
+      vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN; // 组件的孩子
+    } else {
+      children = String(children);
+      vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
+    }
+  }
+
+  return vnode;
+}
+```
+
+
+
+createVnode 创建一个虚拟 DOM，虚拟 DOM 属性如下：
+
+```ts
+const VNode = {
+  __v_isVnode: true,
+  type,
+  props,
+  children,
+  key: props?.key, // diff算法后面需要的key
+  el: null, // 虚拟节点需要对应的真实节点是谁
+  shapeFlag,
+  ref: props?.ref,
+  patchFlag,
+}
 ```
 
 
@@ -1845,8 +1964,6 @@ export function createRenderer(renderOptions) {
     - 先格式化子节点，主要处理子节点是 string 或者 number 类型，将其转换为虚拟 DOM 形式
     - 循环调用 patch 处理子节点
 - hostInsert 将真实 DOM 插入到容器中
-
-
 
 
 

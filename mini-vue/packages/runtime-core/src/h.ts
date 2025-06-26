@@ -24,13 +24,14 @@ export function h(type, propsOrChildren?, children?) {
         return createVnode(type, propsOrChildren);
       }
     }
-    // 儿子 是数组 | 文本
+
     return createVnode(type, null, propsOrChildren);
   } else {
     if (l > 3) {
       // 参数长度大于 3，那么从第三个参数开始都是子节点
       children = Array.from(arguments).slice(2);
     }
+
     if (l == 3 && isVnode(children)) {
       children = [children];
     }
