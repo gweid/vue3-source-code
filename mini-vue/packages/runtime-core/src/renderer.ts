@@ -9,7 +9,7 @@ import { isKeepAlive } from "./components/KeepAlive";
 import { PatchFlags } from "packages/shared/src/patchFlags";
 
 export function createRenderer(renderOptions) {
-  // core中不关心如何渲染
+  // core 中不关心如何渲染
 
   const {
     insert: hostInsert,

@@ -13,6 +13,7 @@
     ]
   },
   "dependencies": {
+    "@vue/compiler-core": "workspace:*",
     "@vue/shared": "workspace:*"
   }
 }

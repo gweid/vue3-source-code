@@ -1383,6 +1383,12 @@ export class ComputedRefImpl<T> {
 
 
 
+## runtime
+
+运行时相关
+
+
+
 ### watch
 
 实际上，watch 不属于 reactivity，而是 runtime-core
@@ -1614,9 +1620,9 @@ function doWatch(source, cb, { deep, immediate }) {
 
 
 
-## runtime
+### h 函数
 
-运行时相关
+
 
 
 

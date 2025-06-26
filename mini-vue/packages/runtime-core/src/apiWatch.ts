@@ -1,7 +1,5 @@
 import { isFunction, isObject } from "@vue/shared";
-import { ReactiveEffect } from "../../reactivity/src/effect";
-import { isReactive } from "../../reactivity/src/reactive";
-import { isRef } from "../../reactivity/src/ref";
+import { ReactiveEffect, isReactive, isRef } from "@vue/reactivity";
 
 export function watch(source, cb, options = {} as any) {
   // watchEffect 也是基于doWatch来实现的
