@@ -1,5 +1,5 @@
 {
-  "name": "vue3-lesson",
+  "name": "mini-vue",
   "private": true,
   "version": "1.0.0",
   "description": "",
@@ -17,6 +17,8 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@vue/runtime-core": "^3.5.17",
+    "@vue/shared": "^3.5.17",
     "vue": "3.4.38"
   }
 }

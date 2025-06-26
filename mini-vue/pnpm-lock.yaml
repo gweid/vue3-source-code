@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@vue/runtime-core':
+        specifier: ^3.5.17
+        version: 3.5.17
+      '@vue/shared':
+        specifier: ^3.5.17
+        version: 3.5.17
       vue:
         specifier: 3.4.38
         version: 3.4.38(typescript@5.4.5)
@@ -24,6 +30,15 @@ importers:
 
   packages/compiler-core:
     dependencies:
+      '@vue/shared':
+        specifier: workspace:*
+        version: link:../shared
+
+  packages/compiler-dom:
+    dependencies:
+      '@vue/compiler-core':
+        specifier: workspace:*
+        version: link:../compiler-core
       '@vue/shared':
         specifier: workspace:*
         version: link:../shared
@@ -53,6 +68,21 @@ importers:
         version: link:../shared
 
   packages/shared: {}
+
+  packages/vue:
+    dependencies:
+      '@vue/reactivity':
+        specifier: workspace:^
+        version: link:../reactivity
+      '@vue/runtime-core':
+        specifier: workspace:^
+        version: link:../runtime-core
+      '@vue/runtime-dom':
+        specifier: workspace:^
+        version: link:../runtime-dom
+      '@vue/shared':
+        specifier: workspace:*
+        version: link:../shared
 
 packages:
 
@@ -337,11 +367,24 @@ packages:
       '@vue/shared': 3.4.38
     dev: false
 
+  /@vue/reactivity@3.5.17:
+    resolution: {integrity: sha512-l/rmw2STIscWi7SNJp708FK4Kofs97zc/5aEPQh4bOsReD/8ICuBcEmS7KGwDj5ODQLYWVN2lNibKJL1z5b+Lw==}
+    dependencies:
+      '@vue/shared': 3.5.17
+    dev: false
+
   /@vue/runtime-core@3.4.38:
     resolution: {integrity: sha512-21z3wA99EABtuf+O3IhdxP0iHgkBs1vuoCAsCKLVJPEjpVqvblwBnTj42vzHRlWDCyxu9ptDm7sI2ZMcWrQqlA==}
     dependencies:
       '@vue/reactivity': 3.4.38
       '@vue/shared': 3.4.38
+    dev: false
+
+  /@vue/runtime-core@3.5.17:
+    resolution: {integrity: sha512-QQLXa20dHg1R0ri4bjKeGFKEkJA7MMBxrKo2G+gJikmumRS7PTD4BOU9FKrDQWMKowz7frJJGqBffYMgQYS96Q==}
+    dependencies:
+      '@vue/reactivity': 3.5.17
+      '@vue/shared': 3.5.17
     dev: false
 
   /@vue/runtime-dom@3.4.38:
@@ -365,6 +408,10 @@ packages:
 
   /@vue/shared@3.4.38:
     resolution: {integrity: sha512-q0xCiLkuWWQLzVrecPb0RMsNWyxICOjPrcrwxTUEHb1fsnvni4dcuyG7RT/Ie7VPTvnjzIaWzRMUBsrqNj/hhw==}
+    dev: false
+
+  /@vue/shared@3.5.17:
+    resolution: {integrity: sha512-CabR+UN630VnsJO/jHWYBC1YVXyMq94KKp6iF5MQgZJs5I8cmjw6oVMO1oDbtBkENSHSSn/UadWlW/OAgdmKrg==}
     dev: false
 
   /csstype@3.1.3:

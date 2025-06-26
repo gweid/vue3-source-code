@@ -1,8 +1,16 @@
+/**
+ * 处理样式
+ * @param el 元素
+ * @param prevValue 旧样式
+ * @param nextValue 新样式
+ */
 export default function patchStyle(el, prevValue, nextValue) {
   let style = el.style;
+
   for (let key in nextValue) {
     style[key] = nextValue[key]; // 新样式要全部生效
   }
+
   if (prevValue) {
     for (let key in prevValue) {
       // 看以前的属性，现在有没有，如果没有删除掉
