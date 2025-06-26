@@ -13,6 +13,8 @@
   - runtime-dom：浏览器运行时
 - 响应式系统
   - reactivity：响应式系统
+- 包之间共享方法
+  - shared：包之间共享方法
 
 
 
