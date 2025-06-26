@@ -169,7 +169,7 @@ vue-source-code
   - compiler-dom
   - compiler-sfc
 
-- 运行时：框架中负责处理虚拟 DOM 渲染、组件系统、响应式系统、更新等核心功能的代码部分
+- 运行时：框架中负责处理虚拟 DOM 渲染、组件系统、更新等核心功能的代码部分
   - runtime-core
   - runtime-dom
 
