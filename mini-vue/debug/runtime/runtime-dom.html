@@ -22,8 +22,8 @@
       "div",
       { style: { color: "red" } },
       h("div", "a1"),
-      h("div", "b1"),
       "啦啦啦啦",
+      "123",
       h("div", { onClick: () => alert("123") }, '点击事件'),
       // 为了处理后面的优化，源码中编译后的结果全部采用了createVnode, 靶向更新
       createVnode("div", {}, "c1")

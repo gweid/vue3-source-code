@@ -55,6 +55,7 @@ export function createVnode(type, props, children?, patchFlag?) {
     } else if (isObject(children)) {
       vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN; // 组件的孩子
     } else {
+      // 子节点是 string 或者 number 类型，转为字符串
       children = String(children);
       vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN;
     }
