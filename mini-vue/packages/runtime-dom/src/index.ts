@@ -13,7 +13,7 @@ import { createRenderer } from "@vue/runtime-core";
 // }
 const renderOptions = Object.assign({ patchProp }, nodeOps);
 
-// render 方法采用 dom api 来进行渲染
+// render 方法
 export const render = (vnode, container) => {
   return createRenderer(renderOptions).render(vnode, container);
 };

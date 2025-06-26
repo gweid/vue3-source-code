@@ -1211,7 +1211,7 @@ function createRenderer(renderOptions2) {
     }
   };
   const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
-    if (n1 == n2) {
+    if (n1 === n2) {
       return;
     }
     if (n1 && !isSameVnode(n1, n2)) {

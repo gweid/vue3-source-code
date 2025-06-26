@@ -8,6 +8,11 @@ import { invokeArray } from "./apiLifecycle";
 import { isKeepAlive } from "./components/KeepAlive";
 import { PatchFlags } from "packages/shared/src/patchFlags";
 
+/**
+ * 创建渲染器
+ * @param renderOptions 渲染选项
+ * @returns 
+ */
 export function createRenderer(renderOptions) {
   // core 中不关心如何渲染
 
@@ -23,6 +28,12 @@ export function createRenderer(renderOptions) {
     patchProp: hostPatchProp,
   } = renderOptions;
 
+  /**
+   * 处理子节点
+   * 子节点可能不是虚拟 DOM 形式，而是字符串或者数字
+   * @param children 子节点
+   * @returns 
+   */
   const normalize = (children) => {
     if (Array.isArray(children)) {
       for (let i = 0; i < children.length; i++) {
@@ -30,6 +41,7 @@ export function createRenderer(renderOptions) {
           typeof children[i] === "string" ||
           typeof children[i] === "number"
         ) {
+          // 当子节点不是虚拟 DOM 形式，而是字符串或者数字，则将其转换为虚拟 DOM
           children[i] = createVnode(Text, null, String(children[i]));
         }
       }
@@ -38,28 +50,50 @@ export function createRenderer(renderOptions) {
     return children;
   };
 
+  /**
+   * 挂载子节点
+   * @param children 子节点
+   * @param container 容器
+   * @param anchor 锚点
+   * @param parentComponent 父组件
+   */
   const mountChildren = (children, container, anchor, parentComponent) => {
+    // 格式化子节点，主要处理子节点可能不是虚拟 DOM 形式，而是字符串或者数字
+    // 将其转换为虚拟 DOM 形式
     normalize(children);
+
+    // 遍历每个子节点，调用 patch
     for (let i = 0; i < children.length; i++) {
       //  children[i] 可能是纯文本元素
       patch(null, children[i], container, anchor, parentComponent);
     }
   };
+
+  /**
+   * 挂载元素节点
+   * @param vnode 虚拟节点
+   * @param container 容器
+   * @param anchor 锚点
+   * @param parentComponent 父组件
+   */
   const mountElement = (vnode, container, anchor, parentComponent) => {
     const { type, children, props, shapeFlag, transition } = vnode;
 
-    // 第一次渲染的时候我么让虚拟节点和真实的dom 创建关联 vnode.el = 真实dom
+    // 第一次渲染的时候让虚拟节点和真实的 dom 创建关联 vnode.el = 真实dom
     // 第二次渲染新的vnode，可以和上一次的vnode做比对，之后更新对应的el元素，可以后续再复用这个dom元素
     let el = (vnode.el = hostCreateElement(type));
+
     if (props) {
       for (let key in props) {
         hostPatchProp(el, key, null, props[key]);
       }
     }
+
     // 9 & 8 > 0 说明儿子是文本元素
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, children);
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      // 子节点是数组形式
       mountChildren(children, el, anchor, parentComponent);
     }
 
@@ -80,6 +114,7 @@ export function createRenderer(renderOptions) {
       // 初始化操作
       mountElement(n2, container, anchor, parentComponent);
     } else {
+      // 更新操作
       patchElement(n1, n2, container, anchor, parentComponent);
     }
   };
@@ -96,13 +131,17 @@ export function createRenderer(renderOptions) {
       }
     }
   };
+
   const unmountChildren = (children, parentComponent) => {
     for (let i = 0; i < children.length; i++) {
       let child = children[i];
       unmount(child, parentComponent);
     }
   };
-  // vue3 中分为两种 全量diff（递归diff） 快速diff(靶向更新)->基于模板编译的
+
+  // vue3 中 diff 分为两种：
+  //  1、全量 diff（递归diff）
+  //  2、快速 diff(靶向更新) -> 基于模板编译的
   const patchKeyedChildren = (c1, c2, el, parentComponent) => {
     // 比较两个儿子的差异更新el
     // appendChild  removeChild  inserBefore
@@ -287,6 +326,7 @@ export function createRenderer(renderOptions) {
       }
     }
   };
+
   const patchBlockChildren = (n1, n2, el, anchor, parentComponent) => {
     for (let i = 0; i < n2.dynamicChildren.length; i++) {
       patch(
@@ -298,6 +338,7 @@ export function createRenderer(renderOptions) {
       );
     }
   };
+
   const patchElement = (n1, n2, container, anchor, parentComponent) => {
     // 1.比较元素的差异，肯定需要复用dom元素
     // 2.比较属性和元素的子节点
@@ -336,13 +377,22 @@ export function createRenderer(renderOptions) {
     }
   };
 
+  /**
+   * 处理文本节点
+   * @param n1 旧虚拟 DOM
+   * @param n2 新虚拟 DOM
+   * @param container 容器
+   */
   const processText = (n1, n2, container) => {
     if (n1 == null) {
-      // 1.虚拟节点要关联真实节点
-      // 2.将节点插入到页面中
+      // 旧虚拟 DOM 不存在
+      //  1. 通过 hostCreateText 创建文本节点
+      //  2. 虚拟节点要关联真实节点，放在属性 el 上
+      //  2. 将创建的文本节点插入到页面中
       hostInsert((n2.el = hostCreateText(n2.children)), container);
     } else {
       const el = (n2.el = n1.el);
+      // 如果文本内容不一致，重置文本内容
       if (n1.children !== n2.children) {
         hostSetText(el, n2.children);
       }
@@ -376,6 +426,7 @@ export function createRenderer(renderOptions) {
       return vnode.type(attrs, { slots }); // 函数式组件
     }
   }
+
   function setupRenderEffect(instance, container, anchor, parentComponent) {
     const componentUpdateFn = () => {
       // 我们要在这里面区分，是第一次还是之后的
@@ -423,6 +474,7 @@ export function createRenderer(renderOptions) {
     const update = (instance.update = () => effect.run());
     update();
   }
+
   const mountComponent = (vnode, container, anchor, parentComponent) => {
     // 1. 先创建组件实例
     const instance = (vnode.component = createComponentInstance(
@@ -454,6 +506,7 @@ export function createRenderer(renderOptions) {
 
     // props.name, attrs.a， data.y
   };
+
   const hasPropsChange = (prevProps, nextProps) => {
     let nKeys = Object.keys(nextProps);
     if (nKeys.length !== Object.keys(prevProps).length) {
@@ -469,6 +522,7 @@ export function createRenderer(renderOptions) {
 
     return false;
   };
+
   const updataProps = (instance, prevProps, nextProps) => {
     // instance.props  ->
 
@@ -487,6 +541,7 @@ export function createRenderer(renderOptions) {
       // instance.props.address = '上海'
     }
   };
+
   const shouldComponentUpdate = (n1, n2) => {
     const { props: prevProps, children: prevChildren } = n1;
     const { props: nextProps, children: nextChildren } = n2;
@@ -500,6 +555,7 @@ export function createRenderer(renderOptions) {
 
     // updataProps(instance, prevProps, nextProps); // children   instance.component.proxy
   };
+
   const updateComponent = (n1, n2) => {
     const instance = (n2.component = n1.component); // 复用组件的实例
     if (shouldComponentUpdate(n1, n2)) {
@@ -507,6 +563,7 @@ export function createRenderer(renderOptions) {
       instance.update(); // 让更新逻辑统一
     }
   };
+
   const processComponent = (n1, n2, container, anchor, parentComponent) => {
     if (n1 === null) {
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
@@ -520,28 +577,46 @@ export function createRenderer(renderOptions) {
       updateComponent(n1, n2);
     }
   };
+
+  /**
+   * 将虚拟节点变成真实节点，并进行渲染
+   * 这里面涉及到 diff 比对
+   * @param n1 旧虚拟 DOM
+   * @param n2 新虚拟 DOM
+   * @param container 容器
+   * @param anchor 锚点
+   * @param parentComponent 父组件
+   */
   const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
-    if (n1 == n2) {
-      // 两次渲染同一个元素直接跳过即可
+    if (n1 === n2) {
+      // 新旧虚拟 DOM 相等，即两次渲染同一个元素，直接跳过即可
       return;
     }
-    // 直接移除老的dom元素，初始化新的dom元素
+
+    // 新旧虚拟 DOM 的 type 或者 key 不相等，直接移除老的 DOM 元素，初始化新的 DOM 元素
+    // 也就是说，diff 比较的前提是 type 和 key 必须相同
     if (n1 && !isSameVnode(n1, n2)) {
       unmount(n1, parentComponent);
-      n1 = null; // 就会执行后续的n2的初始化
+      n1 = null; // 设置 n1 为 null，执行后续的 n2 的初始化
     }
+
     const { type, shapeFlag, ref } = n2;
+
     switch (type) {
       case Text:
+        // 文本节点的处理
         processText(n1, n2, container);
         break;
       case Fragment:
+        // 处理 Fragment 节点
         processFragment(n1, n2, container, anchor, parentComponent);
         break;
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(n1, n2, container, anchor, parentComponent); // 对元素处理
+          // 处理元素节点
+          processElement(n1, n2, container, anchor, parentComponent);
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          // 处理 teleport 节点
           type.process(n1, n2, container, anchor, parentComponent, {
             mountChildren,
             patchChildren,
@@ -555,7 +630,7 @@ export function createRenderer(renderOptions) {
             },
           });
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
-          // 对组件的处理，vue3中函数式组件，已经废弃了，没有性能节约
+          // 对组件的处理，vue3 中使用函数式组件，已经废弃了，没有性能节约
           processComponent(n1, n2, container, anchor, parentComponent);
         }
     }
@@ -565,6 +640,7 @@ export function createRenderer(renderOptions) {
       setRef(ref, n2);
     }
   };
+
   function setRef(rawRef, vnode) {
     let value =
       vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT
@@ -574,6 +650,7 @@ export function createRenderer(renderOptions) {
       rawRef.value = value;
     }
   }
+
   const unmount = (vnode, parentComponent) => {
     const { shapeFlag, transition, el } = vnode;
     const performRemove = () => {
@@ -596,7 +673,13 @@ export function createRenderer(renderOptions) {
       }
     }
   };
-  // 多次调用render 会进行虚拟节点的比较，在进行更新
+
+  /**
+   * render 函数
+   * ! 多次调用 render 会进行虚拟节点的比较，在进行更新
+   * @param vnode 虚拟节点
+   * @param container 容器
+   */
   const render = (vnode, container) => {
     if (vnode == null) {
       // 我要移除当前容器中的dom元素
@@ -604,11 +687,13 @@ export function createRenderer(renderOptions) {
         unmount(container._vnode, null);
       }
     } else {
-      // 将虚拟节点变成真实节点进行渲染
+      // 将虚拟节点变成真实节点，并进行渲染
       patch(container._vnode || null, vnode, container);
+      // 将当前 vnode 挂载到 container 中
       container._vnode = vnode;
     }
   };
+
   return {
     render,
   };
