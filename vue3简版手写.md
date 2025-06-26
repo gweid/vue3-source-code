@@ -1387,9 +1387,145 @@ export class ComputedRefImpl<T> {
 
 ### watch
 
+实际上，watch 不属于 reactivity，而是 runtime-core
+
 
 
 #### 实现 watch
+
+**基本使用：**
+
+```ts
+const numState = ref(18);
+const state = reactive({ name: "张三" });
+
+effect(() => {
+  app.innerHTML = `学号: ${refState.value} --- 姓名: ${state.name}`;
+});
+
+watch(numState, (newVal, oldVal) => {
+  console.log('numState 变化了：', newVal, oldVal);
+});
+
+watch(() => state.name, (newVal, oldVal) => {
+  console.log('state.name 变化了：', newVal, oldVal);
+});
+
+setTimeout(() => {
+  state.name = "李四";
+  refState.value = 20;
+}, 1000);
+```
+
+
+
+**实现：**
+
+```ts
+export function watch(source, cb, options = {} as any) {
+  return doWatch(source, cb, options);
+}
+
+
+function doWatch(source, cb, { deep, immediate }) {
+  // source --> getter
+  const reactiveGetter = (source) =>
+    traverse(source, deep === false ? 1 : undefined);
+
+  // 产生一个可以给 ReactiveEffect 来使用的 getter
+  // 需要对这个对象进行取值操作，会关联当前的 reactiveEffect
+  let getter;
+  if (isReactive(source)) {
+    // reactive 对象，默认开启深度监听
+    getter = () => reactiveGetter(source);
+  } else if (isRef(source)) {
+    // ref
+    getter = () => source.value;
+  } else if (isFunction(source)) {
+    // 函数
+    getter = source;
+  }
+
+  let oldValue;
+
+  let clean;
+  const onCleanup = (fn) => {
+    clean = () => {
+      fn();
+      clean = undefined;
+    };
+  };
+
+  // 相当于 ReactiveEffect 的 scheduler
+  const job = () => {
+    if (cb) {
+      const newValue = effect.run();
+
+      if (clean) {
+        clean(); //  在执行回调前，先调用上一次的清理操作进行清理
+      }
+
+      cb(newValue, oldValue, onCleanup);
+      oldValue = newValue;
+    } else {
+      effect.run(); // watchEffect
+    }
+  };
+
+
+  const effect = new ReactiveEffect(getter, job);
+
+  oldValue = effect.run();
+
+  const unwatch = () => {
+    effect.stop();
+  };
+
+  return unwatch;
+}
+
+
+
+// 控制 depth 当前遍历到了那一层
+// 这里的 source 就是 reactive 对象
+function traverse(source, depth, currentDepth = 0, seen = new Set()) {
+  if (!isObject(source)) {
+    return source;
+  }
+
+  // 如果手动关闭了 deep，那么 depth = 1
+  // 其它情况，depth = undefined，不会走下面逻辑
+  if (depth) {
+    if (currentDepth >= depth) {
+      return source;
+    }
+    currentDepth++; // 根据deep 属性来看是否是深度
+  }
+
+  // 防止循环递归
+  if (seen.has(source)) {
+    return source;
+  }
+
+  // 遍历 reactive 对象的每个属性
+  // 主要作用：触发每个属性的 getter 操作，进行依赖收集
+  // ! 这里收集到的是 watch effect
+  for (let key in source) {
+    traverse(source[key], depth, currentDepth, seen);
+  }
+
+  return source; // 遍历就会触发每个属性的get
+}
+```
+
+主要逻辑在 doWatch 函数中：
+
+- 产生一个可以给 ReactiveEffect 来使用的 getter，这个 getter 的作妖作用就是，当访问 state 属性的时候，触发 getter 进行依赖收集，将 watch effect 收集起来
+  - 当是 reactive，遍历 reactive 所有属性，触发 getter 进行依赖收集
+  - ref 时，访问 ref.value 触发 getter 进行依赖收集
+  - 是函数时，() => state.name 也会访问属性触发 getter 依赖收集
+- 产生一个 ReactiveEffect 的 scheduler（即上面的 job）
+- 当 state 属性变更，触发收集到的 watch effect 进行更新，即调用 watch effect 的 scheduler 函数，获取新值
 
 
 

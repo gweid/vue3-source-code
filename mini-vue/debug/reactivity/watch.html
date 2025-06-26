@@ -30,67 +30,58 @@
         toRefs,
         computed,
         watch,
-        watchEffect,
+        watchEffect
       } from "../../packages/reactivity/dist/reactivity.js";
 
-      const state = reactive({ name: "jw" });
+
+      // ------------------------------- watch 基本使用 -------------------------------
+      const numState = ref(18);
+      const state = reactive({ name: "张三" });
 
       effect(() => {
-        app.innerHTML = state.name;
+        app.innerHTML = `学号: ${numState.value} --- 姓名: ${state.name}`;
       });
 
-      function getData(timer) {
-        return new Promise((resolve, reject) => {
-          setTimeout(() => {
-            resolve(timer);
-          }, timer);
-        });
-      }
+      watch(numState, (newVal, oldVal) => {
+        console.log('numState 变化了：', newVal, oldVal);
+      });
 
-      let timer = 3000;
+      watch(state, (newVal, oldVal) => {
+        console.log('state 变化了：', newVal, oldVal);
+      });
 
-      // let queue = [];
-
-      // watch(
-      //   () => state.name,
-      //   async (newValue, oldValue, onCleanup) => {
-      //     // 第二次执行的 会将第一次的flag 变为false
-      //     let flag = true;
-      //     // for (let i = 0; i < queue.length; i++) {
-      //     //   queue[i]();
-      //     // }
-      //     // queue.push(() => (flag = false));
-      //     timer -= 1000;
-      //     onCleanup(() => {
-      //       flag = false;
-      //     });
-      //     let r = await getData(timer);
-
-      //     // 没调用一次请求，请求时间就减少1s
-
-      //     if (flag) {
-      //       // 根据flag的值去判断要不要渲染
-      //       app.innerHTML = r;
-      //     }
-      //   },
-      //   {
-      //     flush: "sync",
-      //   }
-      // );
-      // 第一次请求时2s后返回的 2000  第二次请求1s后返回的  1000  -> (? ?)
-
-      let r = ref("");
-      effect(() => {
-        console.log(r.value);
+      watch(() => state.name, (newVal, oldVal) => {
+        console.log('state.name 变化了：', newVal, oldVal);
       });
 
       setTimeout(() => {
-        console.log(r);
-        r.value = "abc";
-        r.value = "bcd";
-        // state.name = "a";
-        // state.name = "b";
+        state.name = "李四";
+        numState.value = 20;
       }, 1000);
+
+
+
+      // ------------------------------- 深度监听，立即执行 -------------------------------
+
+      // const state = reactive({ name: "张三", address: { city: "北京" } });
+
+      // effect(() => {
+      //   app.innerHTML = state.name;
+      // });
+
+      // 如果传入一个响应式对象，默认开启深度监听
+      // watch(state, (newVal, oldVal) => {
+      //   console.log('state：', newVal, oldVal);
+      // });
+
+      // 返回响应式对象的 getter 函数，只有在返回不同的对象时，才会触发回调
+      // watch(() => state.address.city, (newVal, oldVal) => {
+      //   console.log('state：', newVal, oldVal);
+      // });
+
+      // setTimeout(() => {
+      //   state.address.city = "上海";
+      // }, 1000);
     </script>
   </body>
 </html>

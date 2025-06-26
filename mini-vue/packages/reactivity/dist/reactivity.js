@@ -338,24 +338,6 @@ function watch(source, cb, options = {}) {
 function watchEffect(source, options = {}) {
   return doWatch(source, null, options);
 }
-function traverse(source, depth, currentDepth = 0, seen = /* @__PURE__ */ new Set()) {
-  if (!isObject(source)) {
-    return source;
-  }
-  if (depth) {
-    if (currentDepth >= depth) {
-      return source;
-    }
-    currentDepth++;
-  }
-  if (seen.has(source)) {
-    return source;
-  }
-  for (let key in source) {
-    traverse(source[key], depth, currentDepth, seen);
-  }
-  return source;
-}
 function doWatch(source, cb, { deep, immediate }) {
   const reactiveGetter = (source2) => traverse(source2, deep === false ? 1 : void 0);
   let getter;
@@ -386,14 +368,14 @@ function doWatch(source, cb, { deep, immediate }) {
       effect2.run();
     }
   };
-  console.log(getter.toString());
+  console.log("=========ReactiveEffect \u7684 fn \u51FD\u6570\uFF1A", getter.toString());
   const effect2 = new ReactiveEffect(getter, job);
   if (cb) {
     if (immediate) {
       job();
     } else {
       oldValue = effect2.run();
-      console.log(oldValue, "oldValue");
+      console.log("=========oldValue\uFF1A", oldValue);
     }
   } else {
     effect2.run();
@@ -402,6 +384,24 @@ function doWatch(source, cb, { deep, immediate }) {
     effect2.stop();
   };
   return unwatch;
+}
+function traverse(source, depth, currentDepth = 0, seen = /* @__PURE__ */ new Set()) {
+  if (!isObject(source)) {
+    return source;
+  }
+  if (depth) {
+    if (currentDepth >= depth) {
+      return source;
+    }
+    currentDepth++;
+  }
+  if (seen.has(source)) {
+    return source;
+  }
+  for (let key in source) {
+    traverse(source[key], depth, currentDepth, seen);
+  }
+  return source;
 }
 export {
   ComputedRefImpl,

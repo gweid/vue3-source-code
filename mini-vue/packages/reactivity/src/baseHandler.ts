@@ -2,7 +2,6 @@ import { isObject } from "@vue/shared";
 import { reactive } from "./reactive";
 import { track, trigger } from "./reactiveEffect";
 import { ReactiveFlags } from "./constants";
-import { activeEffect } from "./effect";
 
 // proxy 需要搭配 reflect 来使用保持默认行为的一致性
 export const mutableHandlers: ProxyHandler<any> = {
