@@ -1520,8 +1520,9 @@ function traverse(source, depth, currentDepth = 0, seen = new Set()) {
 
 主要逻辑在 doWatch 函数中：
 
-- 产生一个可以给 ReactiveEffect 来使用的 getter，这个 getter 的作妖作用就是，当访问 state 属性的时候，触发 getter 进行依赖收集，将 watch effect 收集起来
-  - 当是 reactive，遍历 reactive 所有属性，触发 getter 进行依赖收集
+- 产生一个可以给 ReactiveEffect 来使用的 getter，**这个 getter 的作用就是，当访问 state 属性的时候，触发 getter 进行依赖收集，将 watch effect 收集起来**
+  - 当是 reactive，通过 traverse 函数遍历 reactive 所有属性，触发 getter 进行依赖收集
+    - traverse 函数还做了一件事，就是如果关闭或者手动设置了深度检测 deep 的值，会处理依赖收集的层级
   - ref 时，访问 ref.value 触发 getter 进行依赖收集
   - 是函数时，() => state.name 也会访问属性触发 getter 依赖收集
 - 产生一个 ReactiveEffect 的 scheduler（即上面的 job）
@@ -1531,7 +1532,87 @@ function traverse(source, depth, currentDepth = 0, seen = new Set()) {
 
 #### 实现 watchEffect
 
+```ts
+export function watchEffect(source, options = {}) {
+  // 没有 cb 就是watchEffect
+  return doWatch(source, null, options as any);
+}
 
+
+
+function doWatch(source, cb, { deep, immediate }) {
+  // source --> getter
+  const reactiveGetter = (source) =>
+    traverse(source, deep === false ? 1 : undefined);
+
+  // 产生一个可以给 ReactiveEffect 来使用的 getter
+  // 需要对这个对象进行取值操作，会关联当前的 reactiveEffect
+  let getter;
+  if (isReactive(source)) {
+    // reactive 对象，默认开启深度监听
+    getter = () => reactiveGetter(source);
+  } else if (isRef(source)) {
+    // ref
+    getter = () => source.value;
+  } else if (isFunction(source)) {
+    // 函数
+    getter = source;
+  }
+
+  let oldValue;
+
+  let clean;
+  const onCleanup = (fn) => {
+    clean = () => {
+      fn();
+      clean = undefined;
+    };
+  };
+
+  // 相当于 ReactiveEffect 的 scheduler
+  const job = () => {
+    if (cb) {
+      const newValue = effect.run();
+
+      if (clean) {
+        clean(); //  在执行回调前，先调用上一次的清理操作进行清理
+      }
+
+      cb(newValue, oldValue, onCleanup);
+      oldValue = newValue;
+    } else {
+      effect.run(); // watchEffect
+    }
+  };
+
+  console.log("=========ReactiveEffect 的 fn 函数：", getter.toString());
+  const effect = new ReactiveEffect(getter, job);
+
+  if (cb) {
+    // 有回调函数，是 watch
+    if (immediate) {
+      // 立即先执行一次用户的回调，传递新值和老值
+      job();
+    } else {
+      oldValue = effect.run();
+      console.log("=========oldValue：", oldValue);
+    }
+  } else {
+    // 没有回调函数，那么是 watchEffect
+    effect.run(); // 直接执行即可
+  }
+
+  const unwatch = () => {
+    effect.stop();
+  };
+
+  return unwatch;
+}
+```
+
+- watchEffect 很简单，是在 watch 的基础上实现的
+- 没有传回调函数的，就是 watchEffect
+- 如果是 watchEffect，直接执行一次  effect.run()
 
 
 
