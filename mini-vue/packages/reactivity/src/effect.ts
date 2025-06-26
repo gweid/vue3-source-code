@@ -50,15 +50,18 @@ export class ReactiveEffect {
   constructor(public fn, public scheduler) {}
 
   public get dirty() {
+    // 访问 dirty 属性，会触发 get 拦截器
     return this._dirtyLevel === DirtyLevels.Dirty;
   }
 
-  public set dirty(v) {
-    this._dirtyLevel = v ? DirtyLevels.Dirty : DirtyLevels.NoDirty;
+  public set dirty(value) {
+    this._dirtyLevel = value ? DirtyLevels.Dirty : DirtyLevels.NoDirty;
   }
 
   run() {
-    this._dirtyLevel = DirtyLevels.NoDirty; // 每次运行后 effect 变为 no_dirty
+    // 每次运行后 effect 变为 no_dirty
+    // 主要是给 computed 做缓存用的，当不是脏值，那么就返回上一次缓存的值
+    this._dirtyLevel = DirtyLevels.NoDirty;
 
     // 让 fn 执行
     if (!this.active) {
@@ -171,8 +174,7 @@ export function triggerEffects(dep) {
   // 遍历所有副作用 effect，依次执行
   for (const effect of dep.keys()) {
     // 当前这个值是不脏的，但是触发更新需要将值变为脏值
-
-    // 属性依赖了计算属性， 需要让计算属性的 drity 在变为 true
+    // 属性依赖了计算属性，需要让计算属性的 drity 在变为 true
     if (effect._dirtyLevel < DirtyLevels.Dirty) {
       effect._dirtyLevel = DirtyLevels.Dirty;
     }

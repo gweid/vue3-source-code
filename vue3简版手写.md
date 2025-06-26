@@ -1096,6 +1096,293 @@ export function proxyRefs(objectWithRef) {
 
 ### computed
 
+计算属性：基于响应式依赖进行缓存，只有在其依赖的响应式数据发生变化时才会重新计算
+
+
+
+**基本使用：**
+
+```ts
+const state = reactive({ name: "张三" });
+
+
+// 函数方式
+const aliasName = computed(() => ("**" + state.name))
+
+
+// 对象方式
+const aliasName = computed({
+  get(oldValue) {
+    console.log("runner", oldValue);
+    return "**" + state.name;
+  },
+  set(newValue) {
+    state.name = newValue;
+  },
+});
+
+
+// 副作用
+effect(() => {
+  app.innerHTML = aliasName.value;
+});
+```
+
+
+
+
+
+**computed 函数**
+
+```ts
+export function computed(getterOrOptions) {
+  // 判断是否是函数, computed 有两种使用方式
+  // computed(() => state.name)  // 这种是只有 getter
+  // computed({ get: () => state.name, set: () => {} }) // 这种是既有 getter 又有 setter
+  let onlyGetter = isFunction(getterOrOptions);
+
+  let getter;
+  let setter;
+
+  if (onlyGetter) {
+    // computed 参数是函数
+    getter = getterOrOptions;
+    setter = () => {};
+  } else {
+    getter = getterOrOptions.get;
+    setter = getterOrOptions.set;
+  }
+
+  // 创建一个计算属性
+  return new ComputedRefImpl(getter, setter); // 计算属性ref
+}
+```
+
+
+
+**ComputedRefImpl 类：**
+
+```ts
+export class ComputedRefImpl<T> {
+  public _value;
+  public effect;
+  public dep; // 依赖收集器
+
+  constructor(getter, public setter) {
+    // 创建一个 effect 来关联当前计算属性的 dirty 属性
+    this.effect = new ReactiveEffect(
+      () => getter(this._value), // 用户的 fn  state.name
+      () => {
+        // 这里就是 computed 的 setter，setter 中做派发更新
+        // 计算属性依赖的值变化了，应该触发渲染 effect 重新执行
+        triggerRefValue(this); // 依赖的属性变化后需要触发重新渲染，还需要将 dirty 变为 true
+      }
+    );
+  }
+
+  get value() {
+    // 计算属性维护了一个 dirty（脏值），默认是 true，需要计算
+    // 运行过一次后，dirty 变为 false，后面不在计算，使用上次的缓存值
+    // 当依赖的值变化后，dirty 变为 true，需要重新计算
+    // 让计算属性收集对应的 effect，当依赖的值变化后，会触发 effect 的重新执行
+    if (this.effect.dirty) {
+      // 有脏值，需要重新计算
+
+      // 默认取值一定是脏的，但是执行一次 run 后就不脏了
+      this._value = this.effect.run();
+
+       /**
+       * ! computed 依赖收集，收集 渲染 effect
+       * ! 注意，这里收集的是渲染 effect，为什么呢？
+       *   首先 const aliasName = computed({ get() { return state.name } })，这里 cpmputed
+       */
+      // 如果当前在 effect 中访问了计算属性，计算属性是可以收集这个 effect 的
+      // 也就是计算属性本身收集 渲染 effect，区别依赖属性收集 computed effect
+      trackRefValue(this);
+    }
+
+    // 没有脏值，直接返回
+    return this._value;
+  }
+
+  set value(newValue) {
+    // 这个就是 ref 的 setter
+    this.setter(newValue);
+  }
+}
+```
+
+- 首先，初始化 ComputedRefImpl 类的时候，会创建一个 computed effect 来关联当前计算属性的 dirty 属性
+
+  - 这个 computed effect 的 scheduler 函数，会进行派发更新，依赖的属性变化后需要触发重新渲染，还需要将 dirty 变为 true
+
+    ```ts
+    this.effect = new ReactiveEffect(
+      () => getter(this._value), // 用户的 fn  state.name
+      () => {
+        // 这里就是 computed 的 setter，setter 中做派发更新
+        // 计算属性依赖的值变化了，应该触发渲染 effect 重新执行
+        triggerRefValue(this); // 依赖的属性变化后需要触发重新渲染，还需要将 dirty 变为 true
+      }
+    );
+    ```
+
+    triggerRefValue --> triggerEffects 中：
+
+    ```ts
+    export function triggerEffects(dep) {
+      // 遍历所有副作用 effect，依次执行
+      for (const effect of dep.keys()) {
+        // 当前这个值是不脏的，但是触发更新需要将值变为脏值
+        // 属性依赖了计算属性，需要让计算属性的 drity 在变为 true
+        if (effect._dirtyLevel < DirtyLevels.Dirty) {
+          effect._dirtyLevel = DirtyLevels.Dirty;
+        }
+    
+        // _running > 0 代表当前 effect 正在执行
+        // effect 正在执行，不要调用 scheduler，防止递归调用，进入死循环
+        if (!effect._running) {
+    
+          // new ReactiveEffect 创建 effect 的时候，传递了更新函数
+          if (effect.scheduler) {
+            // 如果有更新函数，则执行更新函数，-> effect.run()
+            effect.scheduler();
+          }
+        }
+      }
+    }
+    ```
+
+- getter 方法：判断 computed effect 的 dirty（脏值），如果是脏值，重新执行 effect.run() 进行计算，调用 trackRefValue 收集 computed 的依赖；没有脏值，直接返回缓存结果
+
+  - 当执行了一次 effect.run()  之后，会将 dirty 设置为 false，那么后续如果依赖的属性没有变化，不会重新计算
+
+    ```ts
+    export class ReactiveEffect {
+      _dirtyLevel = DirtyLevels.Dirty;
+    
+    
+      // fn 用户编写的函数
+      // 如果fn中依赖的数据发生变化后，需要重新调用 -> run()
+      constructor(public fn, public scheduler) {}
+    
+      public get dirty() {
+        // 访问 dirty 属性，会触发 get 拦截器
+        return this._dirtyLevel === DirtyLevels.Dirty;
+      }
+    
+      public set dirty(value) {
+        this._dirtyLevel = value ? DirtyLevels.Dirty : DirtyLevels.NoDirty;
+      }
+    
+      run() {
+        // 每次运行后 effect 变为 no_dirty
+        // 主要是给 computed 做缓存用的，当不是脏值，那么就返回上一次缓存的值
+        this._dirtyLevel = DirtyLevels.NoDirty;
+    
+        // ...
+      }
+    }
+    ```
+
+  - 然后调用 trackRefValue ，**computed 做依赖收集，这里收集的是 render effect**
+
+    > 为什么是 computed 收集到的是 render effect 呢？
+    >
+    > ```ts
+    > const state = reactive({ name: "张三" });
+    > 
+    > const aliasName = computed({
+    >   get(oldValue) {
+    >     console.log("runner", oldValue);
+    >     return "**" + state.name;
+    >   },
+    >   set(newValue) {
+    >     state.name = newValue;
+    >   },
+    > });
+    > 
+    > 
+    > effect(() => {
+    >   app.innerHTML = aliasName.value;
+    > });
+    > ```
+    >
+    > - 首先调用 computed 会调用 new ReactiveEffect 来创建一个 computed effect
+    >
+    > - 接着 effect 调用，effect 会通过 new ReactiveEffect 得到一个 render effect，并且执行一次 render effect.run()，此时全局 activeEffect 被设置为 render effect
+    >
+    > - effect 中访问 aliasName.value，触发 computed 的 getter 函数，这里面调用一次 computed effect.run()，run 中：
+    >
+    >   - 首先使用 lastEffect 保存 activeEffect（上面设置成了 render effect，也就是此时的 lastEffect 是 render effect）
+    >
+    >   - 将 activeEffect 设置为 computed effect
+    >
+    >   - 然后调用 computed effect 的 fn 函数，即这里面的 `() => getter(this._value)` 这一块
+    >
+    >     ```ts
+    >     export class ComputedRefImpl<T> {
+    >       public effect; // 计算属性依赖
+    >     
+    >       constructor(getter, public setter) {
+    >         // 创建一个 effect 来关联当前计算属性的 dirty 属性
+    >         this.effect = new ReactiveEffect(
+    >           () => getter(this._value), // 用户的 fn
+    >           // 这个实际就是 schedule 函数
+    >           () => {
+    >             // 这里就是 computed 的 setter，setter 中做派发更新
+    >             // 计算属性依赖的值变化了，应该触发渲染 effect 重新执行
+    >             triggerRefValue(this); // 依赖的属性变化后需要触发重新渲染，还需要将 dirty 变为 true
+    >           }
+    >         );
+    >       }
+    >     }
+    >     
+    >     
+    >     // () => getter(this._value) 是调用的 getter，就是下面的 get
+    >     const aliasName = computed({
+    >       get(oldValue) {
+    >         console.log("runner", oldValue);
+    >         return "**" + state.name;
+    >       },
+    >       set(newValue) {
+    >         state.name = newValue;
+    >       },
+    >     });
+    >     ```
+    >
+    >     这一段，这一段会访问 state.name，触发 state.name 的 getter 函数，进行依赖收集，因为上面将 activeEffect 设置为 computed effect，所以这里的 state.name 收集到的依赖是  computed effect
+    >
+    >   - 执行完之后，设置 activeEffect = lastEffect，那么此时的 activeEffect 变成了 render effect
+    >
+    > - 继续回到 computed getter 中，执行完 computed effect.run() 之后，调用 trackRefValue 为 computed 收集依赖。此时的 activeEffect 已经是 render effect 了，所以 computed 收集到的是 render effect
+    >
+    > 
+    >
+    > 这里很巧妙的设计：通过 state.name 关联 computed effect，computed 关联 render effect，当 state.name 变化，触发 computed effect 设置 dirty 为 true，并调用 computed effect 的 scheuler，scheuler 调用 computed 收集的 render effect 进行更新
+    >
+    > ```ts
+    > this.effect = new ReactiveEffect(
+    >   () => getter(this._value), // 用户的 fn  state.name
+    >   // 这个实际就是 schedule 函数
+    >   () => {
+    >     // 这里就是 computed 的 setter，setter 中做派发更新
+    >     // 计算属性依赖的值变化了，应该触发渲染 effect 重新执行
+    >     triggerRefValue(this); // 依赖的属性变化后需要触发重新渲染，还需要将 dirty 变为 true
+    >   }
+    > );
+    > ```
+
+- setter 方法：就是调用的 computed 的 setter
+
+
+
+这里需要捋一下 computed effect 与其它 effect
+
+- 计算属性维护了一个 dirty 属性，默认就是 true，稍后运行过一次会将 dirty 变为 false，并且稍后依赖的值变化后会再次让 dirty 变为 true
+- 计算属性也是一个 effect，依赖的属性会收集这个computed effect，当前值变化后，会让 computed effect 里面 dirty 变为 true
+- 计算属性具备收集能力的，可以收集对应依赖的 render effect，依赖的值变化后会触发 render effect 重新执行
+
 
 
 ### watch

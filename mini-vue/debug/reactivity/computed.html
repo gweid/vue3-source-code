@@ -9,73 +9,81 @@
     <div id="app"></div>
     <script type="module">
       // 原生的
-      import {
-        reactive,
-        effect,
-        ref,
-        toRef,
-        toRefs,
-        proxyRefs,
-        computed,
-        watch,
-      } from "/node_modules/vue/dist/vue.esm-browser.js";
-
-      console.log(watch);
-      // 自己的
       // import {
       //   reactive,
       //   effect,
       //   ref,
-      //   toRef,
-      //   toRefs,
       //   computed,
-      // } from "../../packages/reactivity/dist/reactivity.js";
+      // } from "/node_modules/vue/dist/vue.esm-browser.js";
+
+      // 自己的
+      import {
+        reactive,
+        effect,
+        ref,
+        computed,
+      } from "../../packages/reactivity/dist/reactivity.js";
+
+      const state = reactive({ name: "张三" });
 
       // computed 计算属性
-      // computed 执行后的结果是一个ref 不可变的
-      const state = reactive({ name: "jw" });
-
+      // computed 执行后的结果是一个 ref 不可变的
       // dirty = true
       const aliasName = computed({
         get(oldValue) {
           console.log("runner", oldValue);
           return "**" + state.name;
         },
-        set(v) {
-          console.log(v); // 可以通过aliasName.value =  新值
+        set(newValue) {
+          state.name = newValue;
         },
       });
-      // 多次方位此属性 只会执行一次
 
       effect(() => {
-        // template
-        console.log(aliasName.value);
-        console.log(aliasName.value);
-        console.log(aliasName.value);
+        app.innerHTML = aliasName.value;
       });
 
+      // 多次访问此属性 只会执行一次
+      // effect(() => {
+      //   // template
+      //   console.log(aliasName.value);
+      //   console.log(aliasName.value);
+      //   console.log(aliasName.value);
+      // });
+
       setTimeout(() => {
-        state.name = "jw";
+        console.log('setTimeout 1000');
+        
+        // 计算属性依赖的值变化，触发收集的 computed effect
+        state.name = "李四";
       }, 1000);
 
+
+      setTimeout(() => {
+        console.log('setTimeout 2000');
+
+        // 计算属性
+        aliasName.value = '李四';
+      }, 2000);
+
       // 描述实现原理：
-      // 1.计算属性维护了一个dirty属性，默认就是true，稍后运行过一次会将dirty变为false，并且稍后依赖的值变化后会再次让dirty变为true
-      // 2.计算属性也是一个effect， 依赖的属性会收集这个计算属性，当前值变化后，会让computedEffect里面dirty变为true
-      // 3.计算属性具备收集能力的，可以收集对应的effect，依赖的值变化后会触发effect重新执行
+      // 1.计算属性维护了一个 dirty 属性，默认就是 true，稍后运行过一次会将 dirty 变为 false，并且稍后依赖的值变化后会再次让 dirty 变为 true
+      // 2.计算属性也是一个 effect， 依赖的属性会收集这个计算属性，当前值变化后，会让 computedEffect 里面 dirty 变为 true
+      // 3.计算属性具备收集能力的，可以收集对应的 effect，依赖的值变化后会触发 effect 重新执行
 
-      // 计算属性aliasName，计算属性依赖的值name
-      // 计算属性本身就是一个effect，有一个标识dirty = true, 访问的时候会，触发name属性的get方法（依赖收集）
-      // 将name属性和计算属性做一个映射，稍后name变化后会触发计算属性的scheduler
-      // 计算属性可能在effect中使用，当取计算属性的时候，会对当前的effect进行依赖收集
-      // 如果name属性变化了，会通知计算属性将dirty 变为true(触发计算属性收集的effect)
+      // 计算属性 aliasName，计算属性依赖的值 name
+      // 计算属性本身就是一个 effect，有一个标识dirty = true, 访问的时候会，触发 name 属性的 get 方法（依赖收集）
+      // 将 name 属性和计算属性做一个映射，稍后 name 变化后会触发计算属性的 scheduler
+      // 计算属性可能在 effect 中使用，当取计算属性的时候，会对当前的 effect 进行依赖收集
+      // 如果 name 属性变化了，会通知计算属性将 dirty 变为 true (触发计算属性收集的 effect)
 
-      // name  -> 计算属性dirty=true -》 计算属性的scheduler ->触发计算属性收集的effect
+      // name -> 计算属性dirty=true -> 计算属性的 scheduler -> 触发计算属性收集的 effect
 
       /*
       {
-        {name:'jw'}:{
-          name:{
-            effect:{计算属性effect}
+        { name:'jw' }: {
+          name: {
+            effect: { 计算属性effect }
           }
         }
       }

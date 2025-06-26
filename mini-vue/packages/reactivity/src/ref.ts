@@ -48,6 +48,7 @@ class RefImpl {
   }
 }
 
+// ref 依赖收集
 export function trackRefValue(ref) {
   // activeEffect 是在执行副作用函数 effect 时调用 effect.run 赋值的
   if (activeEffect) {
@@ -58,6 +59,7 @@ export function trackRefValue(ref) {
   }
 }
 
+// ref 派发更新
 export function triggerRefValue(ref) {
   let dep = ref.dep;
   if (dep) {

@@ -32,8 +32,8 @@ var ReactiveEffect = class {
   get dirty() {
     return this._dirtyLevel === 4 /* Dirty */;
   }
-  set dirty(v) {
-    this._dirtyLevel = v ? 4 /* Dirty */ : 0 /* NoDirty */;
+  set dirty(value) {
+    this._dirtyLevel = value ? 4 /* Dirty */ : 0 /* NoDirty */;
   }
   run() {
     this._dirtyLevel = 0 /* NoDirty */;
@@ -293,11 +293,13 @@ function isRef(value) {
 
 // packages/reactivity/src/computed.ts
 var ComputedRefImpl = class {
+  // 计算属性的依赖收集器
   constructor(getter, setter) {
     this.setter = setter;
     this.effect = new ReactiveEffect(
       () => getter(this._value),
-      // 用户的fn  state.name
+      // 用户的 fn  state.name
+      // 这个实际就是 schedule 函数
       () => {
         triggerRefValue(this);
       }
@@ -310,8 +312,8 @@ var ComputedRefImpl = class {
     }
     return this._value;
   }
-  set value(v) {
-    this.setter(v);
+  set value(newValue) {
+    this.setter(newValue);
   }
 };
 function computed(getterOrOptions) {
@@ -402,6 +404,7 @@ function doWatch(source, cb, { deep, immediate }) {
   return unwatch;
 }
 export {
+  ComputedRefImpl,
   ReactiveEffect,
   activeEffect,
   computed,
