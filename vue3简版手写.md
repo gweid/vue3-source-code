@@ -1620,7 +1620,235 @@ function doWatch(source, cb, { deep, immediate }) {
 
 
 
+### runtime-dom
+
+与浏览器平台相关的运行时，它的作用就是提供DOM API (提供一系列 DOM 操作的 API 方法)。
+
+首先，三个概念：
+
+- createRenderer: 可以自定义渲染器 （用自己提供渲染的方式）
+- render: 内置的渲染器 （渲染dom元素的）
+- h 函数: 创建一个虚拟 DOM; h(type,propsOrChildren,children)
+
+
+
+而 runtime-dom 的核心就是：通过 createRenderer 创建一个浏览器平台的 render
+
+
+
+#### runtime-dom
+
+```ts
+import { nodeOps } from "./nodeOps";
+import patchProp from "./patchProp";
+
+import { createRenderer } from "@vue/runtime-core";
+
+// 将节点操作和属性操作合并在一起
+const renderOptions = Object.assign({ patchProp }, nodeOps);
+
+// render 方法采用 dom api 来进行渲染
+export const render = (vnode, container) => {
+  return createRenderer(renderOptions).render(vnode, container);
+};
+
+export * from "@vue/runtime-core";
+```
+
+- 可以看到，首先合并节点操作（nodeOps）和 属性操作（patchProp）成 renderOptions
+- 基于 createRenderer 创建一个浏览器渲染 render。createRenderer 自定义渲染器的实现在下面
+
+
+
+#### nodeOps
+
+```ts
+// 主要是对节点元素的增删改查
+export const nodeOps = {
+  // 如果第三个元素不传递 === appendChild
+  insert: (el, parent, anchor) => parent.insertBefore(el, anchor || null),
+  // appendChild  parent.insertBefore(el,null)
+  remove(el) {
+    // 移除dom元素
+    const parent = el.parentNode;
+    parent && parent.removeChild(el);
+  },
+  createElement: (type) => document.createElement(type),
+  createText: (text) => document.createTextNode(text),
+  setText: (node, text) => (node.nodeValue = text), // 设置文本
+  setElementText: (el, text) => (el.textContent = text),
+  parentNode: (node) => node.parentNode,
+  nextSibling: (node) => node.nextSibling,
+};
+```
+
+对节点的操作，比如：createElement、createText 等
+
+
+
+#### patchProp
+
+```ts
+// 主要是对节点元素的属性操作 class style event 普通属性
+import patchAttr from "./modules/patchAttr";
+import patchClass from "./modules/patchClass";
+import patchEvent from "./modules/patchEvent";
+import patchStyle from "./modules/patchStyle";
+
+
+export default function patchProp(el, key, prevValue, nextValue) {
+  if (key === "class") {
+    return patchClass(el, nextValue);
+  } else if (key === "style") {
+    return patchStyle(el, prevValue, nextValue);
+  } else if (/^on[^a-z]/.test(key)) {
+    // el.addEventerListener(key,prevValue)  // ()=> nextValue()
+    return patchEvent(el, key, nextValue);
+  } else {
+    return patchAttr(el, key, nextValue);
+  }
+}
+```
+
+对属性的各种操作，比如处理：class、style、on 指令 等
+
+
+
 ### h 函数
+
+在实现 createRenderer 之前，先看下怎么生成虚拟 DOM
+
+Vue3 中，创建虚拟 DOM 节点（VNode）的核心函数是 h 函数
+
+
+
+h 函数：
+
+```ts
+```
+
+
+
+
+
+### createRenderer
+
+创建一个自定义渲染器。定义在 runtime-core/renderer.ts 中
+
+这里面涉及了
+
+- 初始化阶段将虚拟 DOM 转换为真实 DOM 渲染到页面
+- 更新阶段，diff 比较，生成新虚拟 DOM，转换为真实 DOM 渲染到页面
+
+
+
+下面是简单版本的初始化渲染：
+
+```ts
+export function createRenderer(renderOptions) {
+  /**
+   * 处理子节点
+   * 子节点可能不是虚拟 DOM 形式，而是字符串或者数字
+   * @param children 子节点
+   * @returns 
+   */
+  const normalize = (children) => {
+    if (Array.isArray(children)) {
+      for (let i = 0; i < children.length; i++) {
+        if (
+          typeof children[i] === "string" ||
+          typeof children[i] === "number"
+        ) {
+          // 当子节点不是虚拟 DOM 形式，而是字符串或者数字，则将其转换为虚拟 DOM
+          children[i] = createVnode(Text, null, String(children[i]));
+        }
+      }
+    }
+
+    return children;
+  };  
+
+  // 挂载子节点
+  const mountChildren = (children, container) => {
+    // 格式化子节点，主要处理子节点可能不是虚拟 DOM 形式，而是字符串或者数字
+    // 将其转换为虚拟 DOM 形式
+    normalize(children);
+
+    // 遍历每个子节点，调用 patch
+    for (let i = 0; i < children.length; i++) {
+      //  children[i] 可能是纯文本元素
+      patch(null, children[i], container, anchor, parentComponent);
+    }
+  };
+  
+  // 将虚拟 DOM 渲染成真实 DOM 挂载到页面
+  const mountElement = (vnode, container, anchor, parentComponent) => {
+    const { type, children, props, shapeFlag, transition } = vnode;
+
+    // 第一次渲染的时候让虚拟节点和真实的 dom 创建关联 vnode.el = 真实dom
+    // 第二次渲染新的vnode，可以和上一次的vnode做比对，之后更新对应的el元素，可以后续再复用这个dom元素
+    let el = (vnode.el = hostCreateElement(type));
+
+    // 处理虚拟 DOM 的 prosp 属性
+    if (props) {
+      for (let key in props) {
+        hostPatchProp(el, key, null, props[key]);
+      }
+    }
+
+    // 9 & 8 > 0 说明儿子是文本元素
+    if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      hostSetElementText(el, children);
+    } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      // 子节点是数组形式
+      mountChildren(children, el, anchor, parentComponent);
+    }
+
+    // 将真实 DOM 插入容器
+    hostInsert(el, container)
+  }
+  
+  const patch = (n1, n2, container) => {
+    if (n1 === n2) {
+      // 新旧虚拟 DOM 相等，即两次渲染同一个元素，直接跳过即可
+      return;
+    }
+    
+    mountElement(n2, container)
+  }
+  
+  const render = (vnode, container) => {
+    // 将虚拟节点变成真实节点，并进行渲染
+    patch(container._vnode || null, vnode, container);
+    // 将当前 vnode 挂载到 container 中
+    container._vnode = vnode;
+  };
+
+  // 将 render 函数返回
+  return {
+    render
+  }
+}
+```
+
+初始化阶段的 createRenderer 逻辑很简单，就是将虚拟 DOM 转换为真实 DOM 并渲染到页面
+
+- render 函数接收虚拟 DOM 和容器 container，调用 patch 将虚拟 DOM 转换为真实 DOM 并渲染到页面
+- patch 中：
+  - 创建真实 DOM
+  - 处理 props 属性
+  - 处理子节点，分别处理子节点是文本子节点和数组的形式
+  - 当子节点是文本节点，直接设置文本值即可
+  - 当子节点是数组形式
+    - 先格式化子节点，主要处理子节点是 string 或者 number 类型，将其转换为虚拟 DOM 形式
+    - 循环调用 patch 处理子节点
+- hostInsert 将真实 DOM 插入到容器中
+
+
+
+
+
+### DOM Diff
 
 
 
