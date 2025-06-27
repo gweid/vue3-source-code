@@ -586,10 +586,10 @@ function getSequence(arr) {
       result[start] = i;
     }
   }
-  let l = result.length;
-  let last = result[l - 1];
-  while (l-- > 0) {
-    result[l] = last;
+  let resLen = result.length;
+  let last = result[resLen - 1];
+  while (resLen-- > 0) {
+    result[resLen] = last;
     last = p[last];
   }
   return result;

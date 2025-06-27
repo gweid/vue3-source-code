@@ -309,7 +309,7 @@ export function createRenderer(renderOptions) {
 
 
       // 遍历老的剩余节点，通过 key 找是否可以复用的节点
-      // 老：[C, D, E, F]   新: [E --> 2, C --> 3, D --> 4, H --> 5, I --> 6]
+      // 老剩余：[C, D, E, F]   新剩余: [E --> 2, C --> 3, D --> 4, H --> 5, I --> 6]
       for (let i = s1; i <= e1; i++) {
         const vnode = c1[i];
 
@@ -323,19 +323,25 @@ export function createRenderer(renderOptions) {
           // i 可能是 0 的情况，为了保证 0 是没有比对过的元素，直接 i+1
           // C、D、E 在新的里面能够找到，进入这里
           // 对于 C: newIndex = 3, s2 = 2, i = 2
-          // newIndexToOldMapIndex = [0, 3, 0, 0, 0]
+          // newIndexToOldMapIndex = [0, 3, 0, 0, 0]，0 表示新增的节点，不是 0 就代表新的在旧中的位置
+          // 老的：[A, B, C, D, E, F, G]
+          // 新的：[A, B, E, C, D, H, I, G]
+          // 最终遍历完：newIndexToOldMapIndex = [5, 3, 4, 0, 0]
           newIndexToOldMapIndex[newIndex - s2] = i + 1;
 
-          // 复用
+          // 可复用，递归对比他的子节点
           patch(vnode, c2[newIndex], el);
         }
       }
 
+      // newIndexToOldMapIndex = [5, 3, 4, 0, 0]
+      // 经过最长递增子序列查找，得到 increasingSeq = [1, 2]
+      // 所以对应到 [E, C, D, H, I]，就是 C、D 不动，E 移动到 C 前，创建 H、I，插入到 G 前
       let increasingSeq = getSequence(newIndexToOldMapIndex);
       let j = increasingSeq.length - 1; // 索引
 
       // 倒序遍历剩余的新节点 [E, C, D, H, I]，做移动插入处理
-      // toBePatched 表示要插入的个数，这里是 6
+      // toBePatched 表示要插入的个数，这里是 5
       for (let i = toBePatched - 1; i >= 0; i--) {
         // 找到当前遍历到的节点的位置索引，比如 I 位置是 6
         let newIndex = s2 + i;
@@ -350,6 +356,7 @@ export function createRenderer(renderOptions) {
           patch(null, vnode, el, anchor);
         } else {
           if (i == increasingSeq[j]) {
+            // 不需要动的节点
             j--; // 做了 diff 算法有的优化
           } else {
             hostInsert(vnode.el, el, anchor); // 接着倒序插入

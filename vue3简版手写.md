@@ -2261,6 +2261,13 @@ const patchChildren = (n1, n2, el, anchor, parentComponent) => {
  */
 ```
 
+但是这里最后，做了 5 次的插入操作，这是挺消耗性能的。最好的方法，应该是：
+
+- 创建 H、I，插入到 G 前面
+- 移动 E 到 C 前面
+
+后面加入最长递增子序列就是为了解决这个问题
+
 
 
 实现：
@@ -2425,15 +2432,296 @@ const patchKeyedChildren = (c1, c2, el, parentComponent) => {
 
 ##### 概念
 
+```text
+原始：
+ 旧：[A, B, C, D, E, F, G]
+ 新：[A, B, E, C, D, H, I, G]
 
+双端遍历完后：
+ 旧剩余：[C, D, E, F]
+ 新剩余：[E, C, D, H, I]
+
+
+旧剩余的位置：C, D, E, F --> 2 3 4 5
+可复用的元素在旧中的位置：E, C, D, H, I --> 4 2 3 0 0    // 0 表示的新元素
+
+
+那么得到 2 3 这两个位置元素不动，即 C、D 不动
+将 E 移动到 C 之前
+新建 H、I，插入到 G 之前
+```
+
+此时，就需要一个方法，来查出 [ 4 2 3 0 0 ] 这个连续性最长的可以不动的（即连续递增的）。
+
+这就是最长递增子序列：通过贪心算法 + 二分查找实现
+
+- **贪心策略**：尽可能延长当前找到的递增序列
+- **二分查找**：快速定位替换位置，实现了 O(n log n) 的高效计算
+
+
+
+举例：
+
+```text
+2 3 7 6 8 4 9 11
+
+2              // 首先从第一位开始
+2 3 
+2 3 7
+2 3 6          // 贪心算法，6 是比 7 小，那么这里放 6，尽可能匹配更多
+2 3 6 8     
+2 3 4 8        // 遇到 4，采用二分查找快速查找比 4 大的，替换掉，并记录 4 替换了 6，同时记录 8 前面的值是 6
+2 3 4 8 9
+2 3 4 8 9 11   // 但是这个结果不对，要倒序回来
+
+
+
+同时做记录：
+
+2                   (2的前一个是null)
+2 3                 (3的前一个是2)
+2 3 7               (7的前一个是3)
+2 3 6               (6的前一个是3)
+2 3 6 8            （8的前一个是6）
+2 3 4 8             (4的前一个是3)
+2 3 4 8 9           (9的前一个是8)
+2 3 4 8 9 11        (11的前一个是9)
+
+然后倒序回来根据前一个是谁来查，得出结果
+11 9 8 6 3 2
+```
 
 
 
 ##### vue3 diff 算法中的应用
 
+getSequence 函数：
+
+```ts
+// 获取最长递增子序列
+// [5, 3, 4, 0, 0] --> [1, 2]  找到的是对应的索引位置
+export default function getSequence(arr) {
+  const result = [0];
+  const p = result.slice(0); // 用于存放索引的
+
+  let start;
+  let end;
+  let middle;
+
+  const len = arr.length; // 数组长度
+
+  for (let i = 0; i < len; i++) {
+    const arrI = arr[i];
+    if (arrI !== 0) {
+      // 为了 vue3 而处理掉数组中 0 的情况  [5, 3, 4, 0, 0]
+      // 拿 result 对应的的最后一项，和当前的这一项来作比对
+      let resultLastIndex = result[result.length - 1];
+
+      if (arr[resultLastIndex] < arrI) {
+        p[i] = result[result.length - 1]; // 正常放入的时候，前一个节点索引就是result中的最后一个
+        result.push(i); // 直接将当前的索引放入到结果集即可
+
+        continue;
+      }
+    }
+
+    start = 0;
+    end = result.length - 1;
+
+    while (start < end) {
+      middle = ((start + end) / 2) | 0;
+      if (arr[result[middle]] < arrI) {
+        start = middle + 1;
+      } else {
+        end = middle;
+      }
+    }
+
+    if (arrI < arr[result[start]]) {
+      p[i] = result[start - 1]; // 找到的那个节点的前一个
+      result[start] = i;
+    }
+  }
+
+  // 需要创建一个 前驱节点，进行倒序追溯
+  // p 为前驱节点的列表，需要根据最后一个节点做追溯
+  let resLen = result.length;
+  let last = result[resLen - 1]; // 取出最后一项
+  while (resLen-- > 0) {
+    // 倒序向前找，因为p的列表是前驱节点
+    result[resLen] = last;
+    last = p[last]; // 在数组中找到最后一个
+  }
+
+  return result;
+}
+```
+
+- 这个函数，传入 [5, 3, 4, 0, 0] 会得到 [1, 2]，即这里面的最长递增子序列是 3 4，但是 getSequence 返回的是记录的索引值
 
 
 
+然后在 patchKeyedChildren 中：
+
+```ts
+// 旧节点：A - B - C - D - E - F - G
+// 新节点：A - B - E - C - D - H - I - G
+const patchKeyedChildren = (c1, c2, el, parentComponent) => {
+  // ...
+  let i = 0; // 开始比对的索引
+  let e1 = c1.length - 1; // 旧节点数组的尾部索引
+  let e2 = c2.length - 1; // 新节点数组的尾部索引
+  
+  // ...
+
+  // 先处理两种特殊情况：新的比旧的多 or 新的比旧的少
+  if (i > e1) {
+    // ...
+  } else if (i > e2) {
+    // ...
+  } else {
+    // 处理完上面两个情况，并且对插入和移除做了处理
+    // 后面就是剩余节点的比对了
+
+    // i 是头部遍历结束的位置，比如：
+    //   旧节点：A - B - C - D - E - F - G
+    //   新节点：A - B - E - C - D - H - I - G
+    // 双端遍历完: i = 2, e1 = 5, e2 = 6
+    let s1 = i;
+    let s2 = i;
+
+    // 做一个映射表用于快速查找，看老的是否在新的里面还有，没有就删除，有的话就更新
+    const keyToNewIndexMap = new Map();
+
+    // 双端遍历完后，新的剩余: [E, C, D, H, I]
+    // i = 2, e1 = 5, e2 = 6
+    let toBePatched = e2 - s2 + 1; // 要倒序插入的个数
+
+    // 填充 0，得到 [0, 0, 0, 0, 0]
+    let newIndexToOldMapIndex = new Array(toBePatched).fill(0);
+
+    // 对剩下的新节点，建立 key ---> index 的对应关系
+    // 对于这里新的剩余 [E, C, D, H, I]，建立的关系：
+    // {
+    //   E --> 2
+    //   C --> 3
+    //   D --> 4
+    //   H --> 5
+    //   I --> 6
+    // }
+    for (let i = s2; i <= e2; i++) {
+      const vnode = c2[i];
+      keyToNewIndexMap.set(vnode.key, i);
+    }
+
+
+    // 遍历老的剩余节点，通过 key 找是否可以复用的节点
+    // 老剩余：[C, D, E, F]   新剩余: [E --> 2, C --> 3, D --> 4, H --> 5, I --> 6]
+    for (let i = s1; i <= e1; i++) {
+      const vnode = c1[i];
+
+      const newIndex = keyToNewIndexMap.get(vnode.key); // 通过 key 找到在新剩余对应的索引
+
+      if (newIndex == undefined) {
+        // 如果新的里面找不到，则说明老的这个节点要删除
+        unmount(vnode, parentComponent);
+      } else {
+        // C、D、E 在新的里面能够找到，进入这里
+        // 对于 C: newIndex = 3, s2 = 2, i = 2
+        // newIndexToOldMapIndex = [0, 3, 0, 0, 0]，0 表示新增的节点，不是 0 就代表新的在旧中的位置
+        // 老的：[A, B, C, D, E, F, G]
+        // 新的：[A, B, E, C, D, H, I, G]
+        // 最终遍历完：newIndexToOldMapIndex = [5, 3, 4, 0, 0]
+        newIndexToOldMapIndex[newIndex - s2] = i + 1;
+
+        // 复用
+        patch(vnode, c2[newIndex], el);
+      }
+    }
+
+    // newIndexToOldMapIndex = [5, 3, 4, 0, 0]
+    // 经过最长递增子序列查找，得到 increasingSeq = [1, 2]
+    // 所以对应到 [E, C, D, H, I]，就是 C、D 不动，E 移动到 C 前，创建 H、I，插入到 G 前
+    let increasingSeq = getSequence(newIndexToOldMapIndex);
+    let j = increasingSeq.length - 1; // 索引
+
+    // 倒序遍历剩余的新节点 [E, C, D, H, I]，做移动插入处理
+    // toBePatched 表示要插入的个数，这里是 5
+    for (let i = toBePatched - 1; i >= 0; i--) {
+      // 找到当前遍历到的节点的位置索引，比如 I 位置是 6
+      let newIndex = s2 + i;
+      // 找到当前节点的下一个节点
+      let anchor = c2[newIndex + 1]?.el;
+      // 当前节点
+      let vnode = c2[newIndex];
+
+      if (!vnode.el) {
+        // 如果虚拟 DOM 没有 el 属性，代表是新列表中新增的元素，插入
+        // 虚拟 DOM 与真实 DOM 建立关联是在 mountElement 第一次挂载的时候
+        patch(null, vnode, el, anchor);
+      } else {
+        if (i == increasingSeq[j]) {
+          // 不需要动的节点
+          j--; // 做了 diff 算法有的优化
+        } else {
+          hostInsert(vnode.el, el, anchor); // 接着倒序插入
+        }
+      }
+    }
+  }
+};
+```
+
+这里，举个例子：
+
+  旧节点：A - B - C - D - E - F - G
+  新节点：A - B - E - C - D - H - I - G
+
+- 经过双端遍历后，旧剩余：[C, D, E, F]    新剩余： [E, C, D, H, I]
+
+- toBePatched 记录要插入的个数，这里是以新剩余的个数，所以这里是 toBePatched = 5
+
+- 根据 toBePatched 创建 newIndexToOldMapIndex = new Array(toBePatched).fill(0)，用 0 填充，得到 newIndexToOldMapIndex = [0, 0, 0, 0, 0]
+
+- 遍历剩余老节点，根据 key 确定能复用的节点，找到旧节点在新剩余中的位置
+
+  >旧节点：A - B - C - D - E - F - G
+  >
+  >新节点：A - B - E - C - D - H - I - G
+  >
+  >
+  >
+  >旧剩余：[C, D, E, F] 
+  >
+  >新剩余：[E, C, D, H, I]
+  >
+  >newIndexToOldMapIndex： [0, 0, 0, 0, 0]
+  >
+  >
+  >
+  >比如遍历到 C，C 在新节点中的位置是 3，在 newIndexToOldMapIndex 中对应的是 1，所以 [0, 3, 0, 0, 0]
+  >
+  >遍历完后，可以复用的是 C、D、E，对应得到 newIndexToOldMapIndex = [5, 3, 4, 0, 0]
+  >
+  >后面的 0,0 是 H、I 节点，0 表示新建
+
+- 通过 getSequence(newIndexToOldMapIndex)，[5, 3, 4, 0, 0] ---> [1, 2]
+
+  > 这里通过 getSequence 得到的最长递增子序列是 3 4，但是 getSequence 返回的是索引位置
+
+- 最后，倒序遍历：
+
+  - 获取当前虚拟 DOM，和下一个虚拟 DOM，为了使用 insertBefore 将当前元素插入 xx 之前
+  - 当虚拟 DOM 没有 el 属性，代表是新列表中新增的元素，创建元素，插入
+  - 当虚拟 DOM 有 el 属性，代表可复用的
+    - 当序号与getSequence得到的相同，说名不需要移动
+    - 当不同，移动节点
+
+
+
+最长递增子序列的使用，保障了最多的不需要动的节点，极大减少了节点的插入操作，提高性能。
+
+但是目前虽然使用了最长递增子序列，但还是全量 diff，有很多静态的节点，是不需要 diff 的。这涉及到 vue3 的靶向更新。
 
 
 
