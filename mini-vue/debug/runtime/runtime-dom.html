@@ -9,6 +9,7 @@
 
 <body>
   <div id="app"></div>
+
   <script type="module">
     // import {
     //   createRenderer,
@@ -25,9 +26,10 @@
       "啦啦啦啦",
       "123",
       h("div", { onClick: () => alert("123") }, '点击事件'),
-      // 为了处理后面的优化，源码中编译后的结果全部采用了createVnode, 靶向更新
+      // 为了处理后面的优化，源码中编译后的结果全部采用了 createVnode, 可以实现靶向更新
       createVnode("div", {}, "c1")
     );
+
     render(ele1, app);
   </script>
 </body>

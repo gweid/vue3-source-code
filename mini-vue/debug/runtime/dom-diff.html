@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   render,
+      //   h,
+      // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js";
+
+      import { render, h } from "../../../packages/vue/dist/vue.js";
+      
+      // let vnode1 = h('h1',[
+      //   h('div',{key:'a'},'a'),
+      //   h('div',{key:'b'},'b'),
+      //   h('div',{key:'c'},'c'),
+      //   h('div',{key:'d'},'d'),
+      //   h('div',{key:'e'},'e'),
+      // ])
+
+      // let vnode2 = h('h1',[
+      //   h('div',{key:'a'},'a'),
+      //   h('div',{key:'b',style:{color:'red'}},'b'),
+      //   h('div',{key:'d'},'d'),
+      //   h('div',{key:'y'},'y'),
+      //   h('div',{key:'x'},'x'),
+      //   h('div',{key:'e'},'e'),
+      // ])
+
+
+      // ---------------- 双端遍历后的两种特殊情况 ----------------
+      // let vnode1 = h('div',[
+      //   h('div',{key:'a'},'a'),
+      //   h('div',{key:'b'},'b'),
+      //   h('div',{key:'c'},'c'),
+      // ])
+
+      // 新的比旧的多
+      // let vnode2 = h('div',[
+      //   h('div',{key:'a'},'a'),
+      //   h('div',{key:'b'},'b'),
+      //   h('div',{key:'c'},'c'),
+      //   h('div',{key:'d'},'d'),
+      // ])
+
+      // let vnode2 = h('div',[
+      //   h('div',{key:'d'},'d'),
+      //   h('div',{key:'a'},'a'),
+      //   h('div',{key:'b'},'b'),
+      //   h('div',{key:'c'},'c'),
+      // ])
+
+      // 新的比旧的少
+      // let vnode2 = h('div',[
+      //   h('div',{key:'a'},'a'),
+      //   h('div',{key:'b'},'b'),
+      // ])
+
+
+
+      // ---------------- 最长递增子序列 ----------------
+
+      let vnode1 = h('h1',[
+        h('div',{key:'a'},'a'),
+        h('div',{key:'b'},'b'),
+        h('div',{key:'c'},'c'),
+        h('div',{key:'d'},'d'),
+        h('div',{key:'e'},'e'),
+        h('div',{key:'f'},'f'),
+        h('div',{key:'g'},'g'),
+      ])
+
+      let vnode2 = h('h1',[
+        h('div',{key:'a'},'a'),
+        h('div',{key:'b',style:{color:'red'}},'b'),
+        h('div',{key:'e'},'e'),
+        h('div',{key:'c'},'c'),
+        h('div',{key:'d'},'d'),
+        h('div',{key:'h'},'h'),
+        h('div',{key:'i'},'i'),
+        h('div',{key:'g'},'g'),
+      ])
+
+
+      render(vnode1, app);
+
+
+      // 两个节点之间是有 diff 的 看两个元素是否是同一个元素，如果是则可以复用
+      // 如果不是同一个元素 则需要删除老的换新的
+
+      setTimeout(()=>{
+        render(vnode2, app);
+      },1000);
+    </script>
+  </body>
+</html>

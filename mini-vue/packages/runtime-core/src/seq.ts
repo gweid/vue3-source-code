@@ -1,3 +1,4 @@
+// 获取最长递增子序列
 export default function getSequence(arr) {
   const result = [0];
   const p = result.slice(0); // 用于存放索引的

@@ -79,8 +79,8 @@ export function createRenderer(renderOptions) {
   const mountElement = (vnode, container, anchor, parentComponent) => {
     const { type, children, props, shapeFlag, transition } = vnode;
 
-    // 第一次渲染的时候让虚拟节点和真实的 dom 创建关联 vnode.el = 真实dom
-    // 第二次渲染新的vnode，可以和上一次的vnode做比对，之后更新对应的el元素，可以后续再复用这个dom元素
+    // 第一次渲染的时候让虚拟节点和真实的 dom 创建关联 vnode.el = 真实 dom
+    // 第二次渲染新的 vnode，可以和上一次的 vnode 做比对，之后更新对应的 el 元素，可以后续再复用这个 dom 元素
     let el = (vnode.el = hostCreateElement(type));
 
     if (props) {
@@ -119,6 +119,7 @@ export function createRenderer(renderOptions) {
     }
   };
 
+  // 比较、更新属性
   const patchProps = (oldProps, newProps, el) => {
     // 新的要全部生效
     for (let key in newProps) {
@@ -126,7 +127,7 @@ export function createRenderer(renderOptions) {
     }
     for (let key in oldProps) {
       if (!(key in newProps)) {
-        // 以前多的现在没有了，需要删除掉
+        // 以前多的现在没有了，需要删除掉，新属性传入 null 就是删除
         hostPatchProp(el, key, oldProps[key], null);
       }
     }
@@ -139,45 +140,100 @@ export function createRenderer(renderOptions) {
     }
   };
 
-  // vue3 中 diff 分为两种：
-  //  1、全量 diff（递归diff）
-  //  2、快速 diff(靶向更新) -> 基于模板编译的
+  /**
+   * 新旧虚拟 DOM 的 diff
+   * 
+   * vue3 中 diff 分为两种：
+   *  1、全量 diff（递归 diff）
+   *  2、快速 diff（靶向更新） -> 基于模板编译的
+   * 
+   * @param c1 旧虚拟 DOM 的子节点
+   * @param c2 新虚拟 DOM 的子节点
+   * @param el 容器
+   * @param parentComponent 父组件
+   */
   const patchKeyedChildren = (c1, c2, el, parentComponent) => {
-    // 比较两个儿子的差异更新el
-    // appendChild  removeChild  inserBefore
-    // [a,b,c,e,f,d]
-    // [a,b,c,e,f]
-    // 1.减少比对范围， 先从头开始比，在从尾部开始比较  确定不一样的范围
-    // 2. 从头比对， 在从尾巴比对，如果有多余的或者新增的直接操作即可
-
-    // [a,b,c];
-    // [a,b,d,e];
+    /**
+     * 旧节点：[A, B, C, D, E, F, G]
+     * 新节点：[A, B, E, C, D, H, I, G]
+     * 
+     * 
+     * 同层比较，双端遍历预处理：
+     *  - 从头部开始比对，直到遇到第一个不同的节点，退出
+     *  - 从尾部开始比对，直到遇到第一个不同的节点，退出
+     * 
+     * 
+     * 经过双端遍历后，剩下的子节点有几种情况：
+     *  - 新增的节点
+     *  - 删除的节点
+     *  - 需要移动的节点
+     * 
+     * 
+     * 然后对剩下的新节点，建立 key 和 这些节点在新列表中的索引 index 的映射表
+     * 比如上面的，双端预处理后：
+     *  - 待处理旧节点：[C, D, E, F]
+     *  - 待处理新节点：[E, C, D, H, I]
+     * 
+     * 建立映射表：
+     *  - key: E, index: 2
+     *  - key: C, index: 3
+     *  - key: D, index: 4
+     *  - key: H, index: 5
+     *  - key: I, index: 6
+     * 
+     * 遍历待处理的旧节点，通过 key 找到对应的映射表中的 index
+     * 比如上面，遍历旧节点 [C, D]，
+     *  - 旧节点 F 对应的映射表中没找到，需要删除
+     *  - 其余旧节点都找到，可以复用
+     * 
+     * 
+     * 最后，倒序遍历 [E, C, D, H, I]，从后向前处理确保插入位置正确
+     * 
+     * 
+     * 
+     * 
+     * 旧节点：A - B - C - D - E - F - G
+     * 新节点：A - B - E - C - D - H - I - G
+     * 
+     * 操作步骤：
+     *  1. 识别头部 A、B 相同 → 跳过
+     *  2. 识别尾部 G 相同 → 跳过
+     *  3. 卸载 F
+     *  4. 在 E 前插入 I
+     *  5. 在 I 前插入 H
+     *  6. 在 H 前插入 D
+     *  7. 在 D 前插入 C
+     *  8. 在 C 前插入 E
+     */
 
     let i = 0; // 开始比对的索引
-    let e1 = c1.length - 1; // 第一个数组的尾部索引
-    let e2 = c2.length - 1; // 第二个数组的尾部索引
+    let e1 = c1.length - 1; // 旧节点数组的尾部索引
+    let e2 = c2.length - 1; // 新节点数组的尾部索引
 
+    // 从头部开始比对，直到遇到第一个不同的节点，退出
+    // 相同的节点，递归调用 patch
     while (i <= e1 && i <= e2) {
       // 有任何一方循环结束了 就要终止比较
       const n1 = c1[i];
       const n2 = c2[i];
+
+      // 子节点相同
       if (isSameVnode(n1, n2)) {
-        patch(n1, n2, el); // 更新当前节点的属性和儿子（递归比较子节点）
+        // 更新当前节点的属性和儿子（递归比较子节点）
+        patch(n1, n2, el);
       } else {
+        // 有不同，结束循环
         break;
       }
       i++;
     }
-    // 到c的位置终止了
-    // 到d的位置 终止
-    // c
-    // d e
+
+    // 从尾部开始比对，直到遇到第一个不同的节点，退出
+    // 相同的节点，递归调用 patch
     while (i <= e1 && i <= e2) {
       const n1 = c1[e1];
       const n2 = c2[e2];
-      // i =0
-      // [a,b,c]  // e1 = 2
-      // [d,a,b,c]; // e2 = 3
+
       if (isSameVnode(n1, n2)) {
         patch(n1, n2, el); // 更新当前节点的属性和儿子（递归比较子节点）
       } else {
@@ -186,140 +242,178 @@ export function createRenderer(renderOptions) {
       e1--;
       e2--;
     }
-    // [a,b] [a,b,c]  |  [a,b] [c,a,b ]
-    // 处理增加和删除的特殊情况 [a,b,c] [a,b] |  [c,a,b] [a,b]
 
-    // 最终比对乱序的情况
 
-    // a b
-    // a b c  ->   i = 2 , e1 = 1, e2 = 2     i>e1 && i<=e2
+    // 此时 i 会记录头部遍历终止的位置，e1 和 e2 会记录尾部遍历终止的位置
 
-    //   a b
-    // c a b ->    i = 0, e1 = -1  e2 = 0     i> e1 && i <=e2  新多老的少
 
+    // 先处理两种特殊情况：新的比旧的多 or 新的比旧的少
     if (i > e1) {
-      // 新的多
+      // 比如：[a, b]  --> [a, b, c]
+      // e1 与 e2 取得是长度
+      // 双端遍历完后：i = 2, e1 = 1, e2 = 2；这种情况是新的多
       if (i <= e2) {
-        // 有插入的部分
-        // insert()
-        let nextPos = e2 + 1; // 看一下当前下一个元素是否存在
+        // 如果是 [a, b] --> [c, a, b]
+        // 双端遍历完后：i = 0, e1 = -1, e2 = 0
+        let nextPos = e2 + 1; // 看一下当前下一个元素是否存在，有就是 [c, a, b]；没有就是 [a, b, c]
         let anchor = c2[nextPos]?.el;
         while (i <= e2) {
           patch(null, c2[i], el, anchor);
           i++;
         }
       }
-      // a,b,c
-      // a,b   i = 2   e1 = 2  e2 = 1    i>e2   i<=e1
     } else if (i > e2) {
+      // 比如：[a, b, c] ---> [a, b]
+      // 双端遍历完后：i = 2, e1 = 2, e2 = 1；这种情况就是新的少
       if (i <= e1) {
-        // c,a,b
-        // a,b    i = 0  e1= 1    e2=-1    i>e2   i<=e1
         while (i <= e1) {
-          unmount(c1[i], parentComponent); // 将元素一个个删除
+          // 将元素一个个删除
+          unmount(c1[i], parentComponent);
           i++;
         }
       }
     } else {
-      // 以上确认不变化的节点，并且对插入和移除做了处理
+      // 处理完上面两个情况，并且对插入和移除做了处理
+      // 后面就是剩余节点的比对了
 
-      // 后面就是特殊的比对方式了
-
+      // i 是头部遍历结束的位置，比如：
+      //   旧节点：A - B - C - D - E - F - G
+      //   新节点：A - B - E - C - D - H - I - G
+      // 双端遍历完: i = 2, e1 = 5, e2 = 6
       let s1 = i;
       let s2 = i;
 
-      const keyToNewIndexMap = new Map(); // 做一个映射表用于快速查找， 看老的是否在新的里面还有，没有就删除，有的话就更新
+      // 做一个映射表用于快速查找，看老的是否在新的里面还有，没有就删除，有的话就更新
+      const keyToNewIndexMap = new Map();
+
+      // 双端遍历完后，新的剩余: [E, C, D, H, I]
+      // i = 2, e1 = 5, e2 = 6
       let toBePatched = e2 - s2 + 1; // 要倒序插入的个数
 
+      // 填充 0，得到 [0, 0, 0, 0, 0]
       let newIndexToOldMapIndex = new Array(toBePatched).fill(0);
 
-      // [4,2,3,0]  -> [1,2] 根据最长递增子序列求出对应的 索引结果
-
-      // 格局新的节点，找到对应老的位置
-
+      // 对剩下的新节点，建立 key ---> index 的对应关系
+      // 对于这里新的剩余 [E, C, D, H, I]，建立的关系：
+      // {
+      //   E --> 2
+      //   C --> 3
+      //   D --> 4
+      //   H --> 5
+      //   I --> 6
+      // }
       for (let i = s2; i <= e2; i++) {
         const vnode = c2[i];
         keyToNewIndexMap.set(vnode.key, i);
       }
+
+
+      // 遍历老的剩余节点，通过 key 找是否可以复用的节点
+      // 老：[C, D, E, F]   新: [E --> 2, C --> 3, D --> 4, H --> 5, I --> 6]
       for (let i = s1; i <= e1; i++) {
         const vnode = c1[i];
-        const newIndex = keyToNewIndexMap.get(vnode.key); // 通过key找到对应的索引
+
+        const newIndex = keyToNewIndexMap.get(vnode.key); // 通过 key 找到对应的索引
+
         if (newIndex == undefined) {
-          // 如果新的里面找不到则说明老的有的要删除掉
+          // 如果新的里面找不到，则说明老的这个节点要删除
           unmount(vnode, parentComponent);
         } else {
           // 比较前后节点的差异，更新属性和儿子
-          // 我们i 可能是0的情况，为了保证0 是没有比对过的元素，直接 i+1
-          newIndexToOldMapIndex[newIndex - s2] = i + 1; // [5,3,4,0]
-          patch(vnode, c2[newIndex], el); // 服用
+          // i 可能是 0 的情况，为了保证 0 是没有比对过的元素，直接 i+1
+          // C、D、E 在新的里面能够找到，进入这里
+          // 对于 C: newIndex = 3, s2 = 2, i = 2
+          // newIndexToOldMapIndex = [0, 3, 0, 0, 0]
+          newIndexToOldMapIndex[newIndex - s2] = i + 1;
+
+          // 复用
+          patch(vnode, c2[newIndex], el);
         }
       }
 
-      // 调整顺序
-      // 我们可以按照新的队列 倒序插入insertBefore 通过参照物往前面插入
-
-      // 插入的过程中，可能新的元素的多，需要创建
-
-      // 先从索引为3的位置倒序插入
-
       let increasingSeq = getSequence(newIndexToOldMapIndex);
       let j = increasingSeq.length - 1; // 索引
+
+      // 倒序遍历剩余的新节点 [E, C, D, H, I]，做移动插入处理
+      // toBePatched 表示要插入的个数，这里是 6
       for (let i = toBePatched - 1; i >= 0; i--) {
-        // 3 2 1 0
-        let newIndex = s2 + i; // h 对应的索引，找他的下一个元素作为参照物，来进行插入
+        // 找到当前遍历到的节点的位置索引，比如 I 位置是 6
+        let newIndex = s2 + i;
+        // 找到当前节点的下一个节点
         let anchor = c2[newIndex + 1]?.el;
+        // 当前节点
         let vnode = c2[newIndex];
+
         if (!vnode.el) {
-          // 新列表中新增的元素
-          patch(null, vnode, el, anchor); // 创建h插入
+          // 如果虚拟 DOM 没有 el 属性，代表是新列表中新增的元素，插入
+          // 虚拟 DOM 与真实 DOM 建立关联是在 mountElement 第一次挂载的时候
+          patch(null, vnode, el, anchor);
         } else {
           if (i == increasingSeq[j]) {
-            j--; // 做了diff算法有的优化
+            j--; // 做了 diff 算法有的优化
           } else {
             hostInsert(vnode.el, el, anchor); // 接着倒序插入
           }
         }
       }
-      // 倒序比对每一个元素，做插入操作
     }
   };
 
+  /**
+   * diff 之前，新旧虚拟 DOM 的子节点的比较
+   * @param n1 旧虚拟 DOM
+   * @param n2 新虚拟 DOM
+   * @param el 容器
+   * @param anchor 锚点
+   * @param parentComponent 父组件
+   */
   const patchChildren = (n1, n2, el, anchor, parentComponent) => {
-    //  text  array  null
+    // 子节点有三种：text、array、null
+
     const c1 = n1.children;
-    const c2 = normalize(n2.children);
+    const c2 = normalize(n2.children); // 格式化文本节点为虚拟 dom
 
     const prevShapeFlag = n1.shapeFlag;
     const shapeFlag = n2.shapeFlag;
 
     // 1.新的是文本，老的是数组移除老的；
     // 2.新的是文本，老的也是文本，内容不相同替换
-    // 3.老的是数组，新的是数组，全量 diff 算法
-    // 4.老的是数组，新的不是数组，移除老的子节点
-    // 5.老的是文本，新的是空
-    // 6.老的是文本，新的是数组
+    // 3.老的是文本，新的是空
+    // 4.老的是文本，新的是数组
+    // 5.老的是数组，新的不是数组，移除老的子节点
+    // 6.老的是数组，新的是数组，全量 diff 算法
 
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      // 如果新虚拟 DOM 是文本字符串
+
+      // 如果老虚拟 DOM 是数组，则移除老的子节点
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         unmountChildren(c1, parentComponent);
       }
+
+      // 如果新老虚拟 DOM 的文本内容不相同，则更新文本内容
       if (c1 !== c2) {
         hostSetElementText(el, c2);
       }
     } else {
+      // 如果新虚拟 DOM 是数组
+
       if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-          // 全量diff 算法 两个数组的比对
-          // 6
+          // 如果新老虚拟 DOM 是数组，则进行全量 diff 算法
 
           patchKeyedChildren(c1, c2, el, parentComponent);
         } else {
+          // 新虚拟 DOM 是空，则移除老的子节点
           unmountChildren(c1, parentComponent);
         }
       } else {
+        // 如果老虚拟 DOM 是文本字符串，替换成文本
         if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
           hostSetElementText(el, "");
         }
+
+        // 如果新虚拟 DOM 是数组，则挂载新的子节点
         if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
           mountChildren(c2, el, anchor, parentComponent);
         }
@@ -340,14 +434,14 @@ export function createRenderer(renderOptions) {
   };
 
   const patchElement = (n1, n2, container, anchor, parentComponent) => {
-    // 1.比较元素的差异，肯定需要复用dom元素
+    // 1.比较元素的差异，肯定需要复用 dom 元素
     // 2.比较属性和元素的子节点
     let el = (n2.el = n1.el); // 对dom元素的复用
 
     let oldProps = n1.props || {};
     let newProps = n2.props || {};
 
-    // 在比较元素的时候 针对某个熟悉来去比较
+    // 在比较元素的时候 针对某个属性来去比较
     const { patchFlag, dynamicChildren } = n2;
 
     if (patchFlag) {
@@ -372,7 +466,7 @@ export function createRenderer(renderOptions) {
       // 线性比对
       patchBlockChildren(n1, n2, el, anchor, parentComponent);
     } else {
-      // 全量diff
+      // 全量 diff，比较子节点，这里面是 dom diff
       patchChildren(n1, n2, el, anchor, parentComponent);
     }
   };
@@ -653,9 +747,11 @@ export function createRenderer(renderOptions) {
 
   const unmount = (vnode, parentComponent) => {
     const { shapeFlag, transition, el } = vnode;
+
     const performRemove = () => {
       hostRemove(vnode.el);
     };
+
     if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
       // 需要找keep走失活逻辑
       parentComponent.ctx.deactivate(vnode);
@@ -682,13 +778,14 @@ export function createRenderer(renderOptions) {
    */
   const render = (vnode, container) => {
     if (vnode == null) {
-      // 我要移除当前容器中的dom元素
+      // 新虚拟 DOM 是 null，要移除当前容器中的 dom 元素
       if (container._vnode) {
         unmount(container._vnode, null);
       }
     } else {
       // 将虚拟节点变成真实节点，并进行渲染
       patch(container._vnode || null, vnode, container);
+
       // 将当前 vnode 挂载到 container 中
       container._vnode = vnode;
     }

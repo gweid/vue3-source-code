@@ -7,7 +7,7 @@ export function isVnode(value) {
   return value?.__v_isVnode;
 }
 
-// 判断两个虚拟节点是否相同
+// 判断两个虚拟节点的 type 和 key 是否相同
 export function isSameVnode(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key;
 }
