@@ -1685,6 +1685,7 @@ function baseCreateRenderer(
     }
   }
 
+  // 无 key 子节点比对
   const patchUnkeyedChildren = (
     c1: VNode[],
     c2: VNodeArrayChildren,
@@ -1700,8 +1701,13 @@ function baseCreateRenderer(
     c2 = c2 || EMPTY_ARR
     const oldLength = c1.length
     const newLength = c2.length
+
+    // 按照新旧子节点数组的 最小长度 进行遍历
     const commonLength = Math.min(oldLength, newLength)
+
     let i
+
+    // 同层比较新旧数组的子节点，当做位置没有发生改变，直接更新同位置节点
     for (i = 0; i < commonLength; i++) {
       const nextChild = (c2[i] = optimized
         ? cloneIfMounted(c2[i] as VNode)
@@ -1718,6 +1724,8 @@ function baseCreateRenderer(
         optimized,
       )
     }
+
+    // 如果旧节点数组长度大于新节点数组长度，则删除剩余的旧节点
     if (oldLength > newLength) {
       // remove old
       unmountChildren(
@@ -1729,6 +1737,7 @@ function baseCreateRenderer(
         commonLength,
       )
     } else {
+      // 如果新节点数组长度大于旧节点数组长度，则挂载剩余的新节点
       // mount new
       mountChildren(
         c2,

@@ -2202,9 +2202,97 @@ const patchChildren = (n1, n2, el, anchor, parentComponent) => {
 
 
 
+**patchUnkeyedChildren 函数：**
+
+全量 diff 分两种，一种是有 key 的，一种是无 key 的
+
+```ts
+// 无 key 子节点比对
+const patchUnkeyedChildren = (
+  c1: VNode[],
+  c2: VNodeArrayChildren,
+  container: RendererElement,
+  anchor: RendererNode | null,
+  parentComponent: ComponentInternalInstance | null,
+  parentSuspense: SuspenseBoundary | null,
+  namespace: ElementNamespace,
+  slotScopeIds: string[] | null,
+  optimized: boolean,
+) => {
+  c1 = c1 || EMPTY_ARR
+  c2 = c2 || EMPTY_ARR
+  const oldLength = c1.length
+  const newLength = c2.length
+
+  // 按照新旧子节点数组的 最小长度 进行遍历
+  const commonLength = Math.min(oldLength, newLength)
+
+  let i
+
+  // 同层比较新旧数组的子节点，当做位置没有发生改变，直接更新同位置节点
+  for (i = 0; i < commonLength; i++) {
+    const nextChild = (c2[i] = optimized
+      ? cloneIfMounted(c2[i] as VNode)
+      : normalizeVNode(c2[i]))
+    patch(
+      c1[i],
+      nextChild,
+      container,
+      null,
+      parentComponent,
+      parentSuspense,
+      namespace,
+      slotScopeIds,
+      optimized,
+    )
+  }
+
+  // 如果旧节点数组长度大于新节点数组长度，则删除剩余的旧节点
+  if (oldLength > newLength) {
+    // remove old
+    unmountChildren(
+      c1,
+      parentComponent,
+      parentSuspense,
+      true,
+      false,
+      commonLength,
+    )
+  } else {
+    // 如果新节点数组长度大于旧节点数组长度，则挂载剩余的新节点
+    // mount new
+    mountChildren(
+      c2,
+      container,
+      anchor,
+      parentComponent,
+      parentSuspense,
+      namespace,
+      slotScopeIds,
+      optimized,
+      commonLength,
+    )
+  }
+}
+```
+
+无 key 的 diff 很简单
+
+- 不存在 `key`，所以深入对比新旧节点的变化更加消耗性能，不如直接 **当做位置没有发生改变，直接更新同位置节点**
+- 按照新旧子节点数组的 **最小长度** 进行遍历，同层节点如果不一致，直接更新
+- 遍历完后：
+  - 如果旧节点数组长度大于新节点数组长度，则删除剩余的旧节点
+  - 如果新节点数组长度大于旧节点数组长度，则挂载剩余的新节点
+
+
+
 **patchKeyedChildren 函数：**
 
-解释下没有使用最长递增子序列的 diff 基本流程
+有 key 的全量 diff。
+
+
+
+这里先实现没有使用最长递增子序列的 diff 。解释下没有使用最长递增子序列的 diff 基本流程：
 
 ```ts
 /**
