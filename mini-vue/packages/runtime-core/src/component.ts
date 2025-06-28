@@ -37,20 +37,31 @@ export function createComponentInstance(vnode, parent?) {
 const initProps = (instance, rawProps) => {
   const props = {};
   const attrs = {};
-  const propsOptions = instance.propsOptions || {}; // 组件中定义的
+
+  // 就是组件中定义的 props
+  // const VueComponent = {
+  //   props: {
+  //     name: String
+  //   }
+  // }
+  const propsOptions = instance.propsOptions || {}; // 
+
   if (rawProps) {
     for (let key in rawProps) {
-      // 用所有的来分裂
       const value = rawProps[key]; // value String | number
       if (key in propsOptions) {
-        // propsOptions[key]   === value
-        props[key] = value; // props 不需要深度代理，组件不能更改props
+        // 组件中定义的属性，放进props
+        props[key] = value;
       } else {
+        // 没定义过的，放进 attrs
         attrs[key] = value;
       }
     }
   }
+
+  // attrs 属性没有响应式
   instance.attrs = attrs;
+  // props 不需要深度代理，组件不能更改 props
   instance.props = reactive(props);
 };
 

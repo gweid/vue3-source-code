@@ -3459,7 +3459,120 @@ export function queueJob(job) {
 
 #### 组件 props 和 attrs 属性
 
+使用：
 
+```ts
+const VueComponent = {
+  props: {
+    name: String
+  },
+  render() {
+    return h('div', [
+      h('div', `姓名：${this.name}`),
+    ])
+  }
+}
+
+render(h(VueComponent, { name: '张三', age: 18 }), app)
+```
+
+- 组件中定义了 name，这个是 props 属性，组件中没有定义 age，这个是 attrs
+- 也就是是说：`attrs` 是 Vue 3 中用于访问**组件非 props 属性的重要 API，它包含了父组件传递给子组件但未被明确声明为 props 的所有属性**
+- attrs 不是响应式的，props 是响应式的
+
+
+
+实现：
+
+```ts
+const mountComponent = (vnode, container) => {
+  // 1. 先创建组件实例
+  const instance = (vnode.component = createComponentInstance(
+    vnode
+  ));
+  
+  
+  // 2. 给实例的属性赋值
+  setupComponent(instance);
+
+  
+  // 3. 创建组件的 effect，使得组件可以根据自身状态变化而更新
+  setupRenderEffect(instance, container, anchor, parentComponent);
+}
+```
+
+在这一步的 setupComponent 里面实现
+
+```ts
+export function setupComponent(instance) {
+  const { vnode } = instance;
+
+  // 初始化属性
+  initProps(instance, vnode.props)
+  
+  //...
+}
+
+
+const initProps = (instance, rawProps) => {
+  const props = {};
+  const attrs = {};
+
+  // 就是组件中定义的 props
+  // const VueComponent = {
+  //   props: {
+  //     name: String
+  //   }
+  // }
+  const propsOptions = instance.propsOptions || {}; // 
+
+  if (rawProps) {
+    for (let key in rawProps) {
+      const value = rawProps[key]; // value String | number
+      if (key in propsOptions) {
+        // 组件中定义的属性，放进props
+        props[key] = value;
+      } else {
+        // 没定义过的，放进 attrs
+        attrs[key] = value;
+      }
+    }
+  }
+
+  // attrs 属性没有响应式
+  instance.attrs = attrs;
+  // props 不需要深度代理，组件不能更改 props
+  instance.props = reactive(props);
+};
+```
+
+
+
+#### 组件中的代理对象
+
+```ts
+const VueComponent = {
+  props: {
+    name: String
+  },
+  data() {
+    return {
+      address: '深圳'
+    }
+  },
+  render() {
+    return h('div', [
+      h('div', `姓名：${this.name}`),
+      h('div', `地址：${this.name}`),
+      h('div', `年龄：${this.$attrs.age}`),
+    ])
+  }
+}
+
+render(h(VueComponent, { name: '张三', age: 18 }), app)
+```
+
+如上，在实际使用中，访问 props 属性时，希望可以直接通过 this.name，而不是 this.props.name
 
 
 
