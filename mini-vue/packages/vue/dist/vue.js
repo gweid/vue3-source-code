@@ -623,7 +623,7 @@ function createComponentInstance(vnode, parent) {
     vnode,
     // 组件的虚拟节点
     subTree: null,
-    // 子树
+    // 子树（子虚拟节点，通过调用组件的 render 函数得到）
     isMounted: false,
     // 是否挂载完成
     update: null,
@@ -665,6 +665,13 @@ var initProps = (instance, rawProps) => {
   instance.attrs = attrs;
   instance.props = reactive(props);
 };
+function initSlots(instance, children) {
+  if (instance.vnode.shapeFlag & 32 /* SLOTS_CHILDREN */) {
+    instance.slots = children;
+  } else {
+    instance.slots = {};
+  }
+}
 var publicProperty = {
   $attrs: (instance) => instance.attrs,
   $slots: (instance) => instance.slots
@@ -699,13 +706,6 @@ var handler = {
     return true;
   }
 };
-function initSlots(instance, children) {
-  if (instance.vnode.shapeFlag & 32 /* SLOTS_CHILDREN */) {
-    instance.slots = children;
-  } else {
-    instance.slots = {};
-  }
-}
 function setupComponent(instance) {
   const { vnode } = instance;
   initProps(instance, vnode.props);

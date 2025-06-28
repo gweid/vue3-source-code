@@ -30,12 +30,12 @@ export function createVnode(type, props, children?, patchFlag?) {
   const shapeFlag = isString(type)
     ? ShapeFlags.ELEMENT // 元素
     : isTeleport(type)
-    ? ShapeFlags.TELEPORT
-    : isObject(type)
-    ? ShapeFlags.STATEFUL_COMPONENT
-    : isFunction(type)
-    ? ShapeFlags.FUNCTIONAL_COMPONENT // 组件
-    : 0;
+      ? ShapeFlags.TELEPORT // teleport
+      : isObject(type)
+        ? ShapeFlags.STATEFUL_COMPONENT // 带状态的组件
+        : isFunction(type)
+          ? ShapeFlags.FUNCTIONAL_COMPONENT // 函数组件
+          : 0;
 
   // 虚拟 DOM 节点
   const vnode = {

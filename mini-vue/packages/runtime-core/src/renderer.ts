@@ -523,6 +523,7 @@ export function createRenderer(renderOptions) {
     Object.assign(instance.slots, next.children);
   };
 
+  // 执行组件
   function renderComponent(instance) {
     // attrs , props  = 属性
     const { render, vnode, proxy, props, attrs, slots } = instance;
@@ -534,6 +535,7 @@ export function createRenderer(renderOptions) {
     }
   }
 
+  // 创建组件的 effect，使得组件可以根据自身状态变化而更新
   function setupRenderEffect(instance, container, anchor, parentComponent) {
     const componentUpdateFn = () => {
       // 我们要在这里面区分，是第一次还是之后的
@@ -582,13 +584,21 @@ export function createRenderer(renderOptions) {
     update();
   }
 
+  /**
+   * 组件挂载
+   * @param vnode 新 vnode
+   * @param container 容器
+   * @param anchor 锚点
+   * @param parentComponent 父组件
+   */
   const mountComponent = (vnode, container, anchor, parentComponent) => {
-    // 1. 先创建组件实例
+    // 1. 先创建组件实例，并将组件实例挂载到虚拟 DOM 的 component 属性上
     const instance = (vnode.component = createComponentInstance(
       vnode,
       parentComponent
     ));
 
+    // 处理 keepAlive 组件
     if (isKeepAlive(vnode)) {
       instance.ctx.renderer = {
         createElement: hostCreateElement, // 内部需要创建一个div来缓存dom
@@ -600,18 +610,15 @@ export function createRenderer(renderOptions) {
       };
     }
 
-    // 2. 给实例的属性赋值
+    // 2. 给组价实例的属性赋值
     setupComponent(instance);
 
-    // 3. 创建一个effect
+    // 3. 创建组件的 effect，使得组件可以根据自身状态变化而更新
     setupRenderEffect(instance, container, anchor, parentComponent);
-    // 组件可以基于自己的状态重新渲染，effect
 
     // 根据propsOptions 来区分出 props,attrs
     // 元素更新  n2.el = n1.el
     // 组件更新  n2.component.subTree.el =  n1.component.subTree.el
-
-    // props.name, attrs.a， data.y
   };
 
   const hasPropsChange = (prevProps, nextProps) => {
@@ -663,6 +670,11 @@ export function createRenderer(renderOptions) {
     // updataProps(instance, prevProps, nextProps); // children   instance.component.proxy
   };
 
+  /**
+   * 组件的更新
+   * @param n1 旧虚拟 DOM
+   * @param n2 新虚拟 DOM
+   */
   const updateComponent = (n1, n2) => {
     const instance = (n2.component = n1.component); // 复用组件的实例
     if (shouldComponentUpdate(n1, n2)) {
@@ -671,12 +683,21 @@ export function createRenderer(renderOptions) {
     }
   };
 
+  /**
+   * 组件的挂载 or 更新入口
+   * @param n1 旧虚拟 DOM
+   * @param n2 新虚拟 DOM
+   * @param container 容器
+   * @param anchor 锚点
+   * @param parentComponent 父组件
+   */
   const processComponent = (n1, n2, container, anchor, parentComponent) => {
     if (n1 === null) {
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
         // 需要走keepAlive中的激活方法
         parentComponent.ctx.activate(n2, container, anchor);
       } else {
+        // 组件挂载
         mountComponent(n2, container, anchor, parentComponent);
       }
     } else {
@@ -737,7 +758,10 @@ export function createRenderer(renderOptions) {
             },
           });
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
-          // 对组件的处理，vue3 中使用函数式组件，已经废弃了，没有性能节约
+          // 对组件的处理：函数组件或者带状态的组件
+          // 在 vue3 中通过静态提升、Patch Flag 标记等使得组件性能已经不输函数组件
+          // 但函数组件无法使用响应式状态​​、​​缺少实例方法​等缺点
+          // 所以 vue3 中已经不建议使用函数组件
           processComponent(n1, n2, container, anchor, parentComponent);
         }
     }

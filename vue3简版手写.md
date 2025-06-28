@@ -2829,7 +2829,7 @@ patch 函数中，除了处理 element 节点，还会对 text、Fragment 等节
 
 
 
-**使用：**
+#### 基本使用
 
 ```ts
 const text = h(Text, "啦啦啦啦");
@@ -2845,7 +2845,7 @@ setTimeout(() => {
 
 
 
-**实现：**
+#### 实现
 
 > packages/runtime-core/src/h.ts
 
@@ -2957,7 +2957,7 @@ Fragment：并不会产生额外的标签
 
 
 
-**使用：**
+#### 基本使用
 
 ```ts
 const fragment = h(Fragment, [
@@ -2980,7 +2980,7 @@ setTimeout(() => {
 
 
 
-**实现：**
+#### 实现
 
 与 Text 相似，定义一个 Fragment 标识符，在调用 h 函数创建虚拟 DOM 的时候，传入 Fragment 表示是 Fragment 标签
 
@@ -3058,6 +3058,304 @@ const unmountChildren = (children) => {
   }
 };
 ```
+
+
+
+### 组件的渲染更新
+
+
+
+#### 基本使用
+
+```ts
+const VueComponent = {
+  data() {
+    return {
+      name: "张三",
+      age: 30
+    };
+  },
+
+  render() {
+
+    // this == 组件的实例  内部不会通过类来产生实例了
+    return h(Fragment, [
+      h(Text, `姓名：${this.name}`),
+      h("div", `年龄：${this.age}`),
+    ]);
+  },
+};
+
+
+render(h(VueComponent, { a: 1, b: 2, name: "jw", age: 30 }), app);
+```
+
+
+
+#### 组件渲染
+
+创建 vnode 的时候，通过 ShapeFlags 编辑函数组件
+
+```ts
+export function createVnode(type, props, children?) {
+  const shapeFlag = isString(type)
+    ? ShapeFlags.ELEMENT // 元素
+    : isTeleport(type)
+      ? ShapeFlags.TELEPORT // teleport
+      : isObject(type)
+        ? ShapeFlags.STATEFUL_COMPONENT // 带状态的组件
+        : isFunction(type)
+          ? ShapeFlags.FUNCTIONAL_COMPONENT // 函数组件
+          : 0;
+
+  // 虚拟 DOM 节点
+  const vnode = {
+    __v_isVnode: true,
+    type,
+    props,
+    children,
+    key: props?.key, // diff算法后面需要的key
+    el: null, // 虚拟节点需要对应的真实节点是谁
+    shapeFlag,
+    ref: props?.ref,
+    patchFlag,
+  };
+  
+  // ...
+
+  return vnode
+}
+
+
+
+
+export enum ShapeFlags { // 对元素形状的判断
+  // ...
+  FUNCTIONAL_COMPONENT = 1 << 1, // 2，函数组件
+  STATEFUL_COMPONENT = 1 << 2, //  4，带状态的组件
+  COMPONENT = ShapeFlags.STATEFUL_COMPONENT | ShapeFlags.FUNCTIONAL_COMPONENT, // 组件
+}
+```
+
+
+
+在 patch 的时候，区分是组件，调用 processComponent 函数
+
+```ts
+const patch = (n1, n2, container) => {
+  // ...
+  const { type, shapeFlag, ref } = n2;
+  
+  switch (type) {
+    case Text:
+      // 文本节点的处理
+    case Fragment:
+      // 处理 Fragment 节点
+    default:
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        // 处理元素节点
+       
+      } else if (shapeFlag & ShapeFlags.TELEPORT) {
+        
+      } else if (shapeFlag & ShapeFlags.COMPONENT) {
+        // 对组件的处理：函数组件或者带状态的组件
+        // 在 vue3 中通过静态提升、Patch Flag 标记等使得组件性能已经不输函数组件
+        // 但函数组件无法使用响应式状态、缺少实例方法、等缺点
+        // 所以 vue3 中已经不建议使用函数组件
+        processComponent(n1, n2, container);
+      }
+  }
+}
+```
+
+
+
+processComponent 函数：
+
+```ts
+const processComponent = (n1, n2, container) => {
+  if (n1 === null) {
+    // 组件挂载
+    mountComponent(n2, container);
+  } else {
+    // 组件的更新
+    updateComponent(n1, n2);
+  }
+};
+```
+
+
+
+组件挂载 mountComponent：
+
+```ts
+import { ReactiveEffect } from "@vue/reactivity"
+
+
+const mountComponent = (vnode, container) => {
+  // 1. 先创建组件实例
+  const instance = (vnode.component = createComponentInstance(
+    vnode
+  ));
+  
+  
+  // 2. 给实例的属性赋值
+  setupComponent(instance);
+
+  
+  // 3. 创建组件的 effect，使得组件可以根据自身状态变化而更新
+  setupRenderEffect(instance, container, anchor, parentComponent);
+}
+
+
+
+// 创建组件的 effect，使得组件可以根据自身状态变化而更新
+function setupRenderEffect(instance, container) {
+  
+  const { data, render } = instance
+  
+  const componentUpdateFn = () => {
+    // 区分是第一次还是之后的
+    if (!instance.isMounted) {
+      // 执行组件的 render 函数，得到子虚拟 DOM
+      const subTree = render.call(data, data);
+
+      // 通过 patch 函数进行渲染，第一个参数是 null 表示初次渲染
+      patch(null, subTree, container);
+
+      instance.isMounted = true;
+      instance.subTree = subTree;
+    } else {
+      // 基于状态的组件更新
+      const subTree = render.call(data, data);
+
+      patch(instance.subTree, subTree, container);
+
+      instance.subTree = subTree;
+    }
+  };
+
+  // 建立组件组件的副作用
+  const effect = new ReactiveEffect(componentUpdateFn, () => update());
+
+  // 组件的更新函数
+  const update = (instance.update = () => effect.run());
+  
+  // 执行一次更新函数
+  update();
+}
+```
+
+
+
+> packages/runtime-core/src/component.ts
+
+```ts
+/**
+ * 创建组件实例
+ * @param vnode 组件的虚拟节点
+ * @returns 组件实例
+ */
+export function createComponentInstance(vnode) {
+  const instance = {
+    data: null, // 状态
+    vnode, // 组件的虚拟节点
+    subTree: null, // 子树（子虚拟节点，通过调用组件的 render 函数得到）
+    isMounted: false, // 是否挂载完成
+    update: null, // 组件的更新的函数
+    
+    // ...
+  };
+
+  return instance;
+}
+
+
+
+
+export function setupComponent(instance) {
+  const { vnode } = instance;
+
+  // 对于组件，type 就是这个组件对象
+  /**
+   * const VueComponent = {
+   *    data() {
+   *       return {
+   *         name: "张三",
+   *       };
+   *    },
+   *    render() {
+   *       return h('div', `hello, ${this.name}`);
+   *    },
+   * };
+   * 
+   * h(VueComponent, { name: "李四" })
+   * 
+   * function h(type, propsOrChildren?, children?)
+   */
+  const { render } = vnode.type;
+  
+  
+  // 将 data 转换为响应式数据，用作依赖收集
+  instance.data = reactive(data.call(instance));
+
+  // render 函数用来生成组件的子虚拟 DOM
+  // render() {
+  //   return h(Fragment, [
+  //     h(Text, `姓名：${this.name}`),
+  //     h("div", `年龄：${this.age}`),
+  //   ]);
+  // }
+  if (!instance.render) {
+    // 没有 render 用自己的 render
+    instance.render = render;
+  }
+}
+```
+
+
+
+组件渲染基本过程：
+
+- 先通过 createComponentInstance 函数创建组件实例，并将组件实例挂载到虚拟 DOM 的 component 属性上
+
+  创建处理的组件组件实例是一个对象，基础属性如下：
+
+  ```ts
+  const instance = {
+    data: null, // 状态
+    vnode, // 组件的虚拟节点
+    subTree: null, // 子树（子虚拟节点，通过调用组件的 render 函数得到）
+    isMounted: false, // 是否挂载完成
+    update: null, // 组件的更新的函数
+  
+    // ...
+  };
+  ```
+
+- 给组件实例赋值
+
+  - 初始化渲染，主要是通过 reactive 将组件的 data 转换为响应式，并挂载到 instance上，配合后面创建组件 effect 做依赖收集和派发更新
+  - 以及挂载 render 函数到组件实例 instance 上
+
+- 创建组件的 effect，使得组件可以根据自身状态变化而更新
+
+  - 创建 componentUpdateFn 函数，作为 new ReactiveEffect 的 fn 函数，里面区分是初次渲染还是更新做处理。主要是根据组件 render 函数创建组件的字虚拟 DOM，并通过 patch 挂载 or 更新组件
+  - 创建更新函数，主要是调用 effect.run，挂载到 instance 上，并手动执行一次。后面可以手动调用这个更新函数更新组件
+
+
+
+核心就是：创建组件实例，将 data 转换为响应式，创建 组件 effect 关联响应式 data，当访问 data 的时候，进行依赖收集，data 变化的时候，派发更新
+
+
+
+#### 异步更新
+
+
+
+
+
+#### 组件 props 和 attrs 属性
 
 
 
