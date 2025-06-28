@@ -486,12 +486,14 @@ export function createRenderer(renderOptions) {
    */
   const processText = (n1, n2, container) => {
     if (n1 == null) {
+      // 初始化渲染
       // 旧虚拟 DOM 不存在
       //  1. 通过 hostCreateText 创建文本节点
       //  2. 虚拟节点要关联真实节点，放在属性 el 上
       //  2. 将创建的文本节点插入到页面中
       hostInsert((n2.el = hostCreateText(n2.children)), container);
     } else {
+      // 更新操作
       const el = (n2.el = n1.el);
       // 如果文本内容不一致，重置文本内容
       if (n1.children !== n2.children) {
@@ -499,6 +501,7 @@ export function createRenderer(renderOptions) {
       }
     }
   };
+
   // 渲染走这里，更新也走这里
   const processFragment = (n1, n2, container, anchor, parentComponent) => {
     if (n1 == null) {
@@ -784,6 +787,7 @@ export function createRenderer(renderOptions) {
    * @param container 容器
    */
   const render = (vnode, container) => {
+    debugger
     if (vnode == null) {
       // 新虚拟 DOM 是 null，要移除当前容器中的 dom 元素
       if (container._vnode) {

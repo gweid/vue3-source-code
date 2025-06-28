@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    // import {
+    //   createRenderer,
+    //   render,
+    //   h,
+    // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js";
+
+    import { render, h, createVnode, Text } from "../../../packages/vue/dist/vue.js";
+
+    let text = h(Text, {}, "啦啦啦啦");
+
+    render(text, app);
+
+    setTimeout(() => {
+      render(h(Text, {}, "123"), app);
+    }, 1000);
+
+  </script>
+</body>
+
+</html>

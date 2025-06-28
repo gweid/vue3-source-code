@@ -1277,6 +1277,7 @@ function createRenderer(renderOptions2) {
     }
   };
   const render2 = (vnode, container) => {
+    debugger;
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, null);

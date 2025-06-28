@@ -2823,6 +2823,142 @@ const patchKeyedChildren = (c1, c2, el, parentComponent) => {
 
 
 
+### 文本节点
+
+patch 函数中，除了处理 element 节点，还会对 text、Fragment 等节点做单独处理
+
+
+
+**使用：**
+
+```ts
+let text = h(Text, {}, "啦啦啦啦");
+
+render(text, app);
+```
+
+
+
+**实现：**
+
+> packages/runtime-core/src/h.ts
+
+```ts
+export function h(type, propsOrChildren?, children?) {
+  // ...
+  
+  return createVnode(type, null, [propsOrChildren]);
+}
+```
+
+
+
+> packages/runtime-core/src/createVnode.ts
+
+```ts
+// 定义 Text 文本标识
+export const Text = Symbol("Text");
+
+
+
+export function createVnode(type, props, children?) {
+  
+  // ...
+
+  const vnode = {
+    __v_isVnode: true,
+    type,
+    props,
+    children,
+    key: props?.key, // diff算法后面需要的key
+    el: null, // 虚拟节点需要对应的真实节点是谁
+    shapeFlag,
+    ref: props?.ref,
+    patchFlag,
+  };
+  
+  return vnode;
+}
+```
+
+
+
+> packages/runtime-core/src/renderer.ts
+
+```ts
+import { Text } from "./createVnode";
+
+
+/**
+ * 处理文本节点
+ * @param n1 旧虚拟 DOM
+ * @param n2 新虚拟 DOM
+ * @param container 容器
+ */
+const processText = (n1, n2, container) => {
+  if (n1 == null) {
+    // 初始化渲染
+    // 旧虚拟 DOM 不存在
+    //  1. 通过 hostCreateText 创建文本节点
+    //  2. 虚拟节点要关联真实节点，放在属性 el 上
+    //  2. 将创建的文本节点插入到页面中
+    hostInsert((n2.el = hostCreateText(n2.children)), container);
+  } else {
+    // 更新操作
+    const el = (n2.el = n1.el);
+    // 如果文本内容不一致，重置文本内容
+    if (n1.children !== n2.children) {
+      hostSetText(el, n2.children);
+    }
+  }
+};
+
+
+
+const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
+  if (n1 === n2) {
+    // 新旧虚拟 DOM 相等，即两次渲染同一个元素，直接跳过即可
+    return;
+  }
+
+  // 新旧虚拟 DOM 的 type 或者 key 不相等，直接移除老的 DOM 元素，初始化新的 DOM 元素
+  // 也就是说，diff 比较的前提是 type 和 key 必须相同
+  if (n1 && !isSameVnode(n1, n2)) {
+    unmount(n1, parentComponent);
+    n1 = null; // 设置 n1 为 null，执行后续的 n2 的初始化
+  }
+
+  const { type, shapeFlag, ref } = n2;
+
+  switch (type) {
+    case Text:
+      // 文本节点的处理
+      processText(n1, n2, container);
+      break;
+    case Fragment:
+      // ...
+    default:
+      // ...
+  }
+};
+```
+
+- 通过 Symbol("Text") 定义文本标识
+- 在 patch 中，根据 type 判断是文本节点，调用 processText 处理
+  - 初次渲染
+    - 通过 hostCreateText 创建文本节点
+    - 虚拟节点要关联真实节点，放在属性 el 上
+    - 将创建的文本节点插入到页面中
+  - 更新操作，如果文本内容不一致，重置文本内容
+
+
+
+### Fragment 节点
+
+
+
+
+
 ## compiler
 
 编译时相关

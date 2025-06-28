@@ -1,8 +1,14 @@
 import { ShapeFlags, isFunction, isObject, isString } from "@vue/shared";
 import { isTeleport } from "./components/Teleport";
 
-export const Text = Symbol("Text");
-export const Fragment = Symbol("Fragment");
+export const Text = Symbol("Text"); // 定义 Text 文本标识
+export const Fragment = Symbol("Fragment"); // 定义 Fragment 片段标识
+
+/**
+ * 判断是否为虚拟节点
+ * @param value 需要判断的值
+ * @returns 是否为虚拟节点
+ */
 export function isVnode(value) {
   return value?.__v_isVnode;
 }
@@ -68,14 +74,17 @@ let currentBlock = null;
 export function openBlock() {
   currentBlock = []; // 用于收集动态节点的
 }
+
 export function closeBlock() {
   currentBlock = null;
 }
+
 export function setupBlock(vnode) {
   vnode.dynamicChildren = currentBlock; // 当前elementBlock会收集子节点，用当前block来收集
   closeBlock();
   return vnode;
 }
+
 // block 有收集虚拟节点的功能
 export function createElementBlock(type, props, children, patchFlag?) {
   const vnode = createVnode(type, props, children, patchFlag);
@@ -84,6 +93,7 @@ export function createElementBlock(type, props, children, patchFlag?) {
   // }
   return setupBlock(vnode);
 }
+
 export function toDisplayString(value) {
   return isString(value)
     ? value
@@ -93,4 +103,5 @@ export function toDisplayString(value) {
     ? JSON.stringify(value)
     : String(value);
 }
+
 export { createVnode as createElementVNode };
