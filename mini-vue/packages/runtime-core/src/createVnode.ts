@@ -59,7 +59,8 @@ export function createVnode(type, props, children?, patchFlag?) {
     if (Array.isArray(children)) {
       vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN;
     } else if (isObject(children)) {
-      vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN; // 组件的孩子
+      // h 函数的第三个参数是对象，代表插槽
+      vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN;
     } else {
       // 子节点是 string 或者 number 类型，转为字符串
       children = String(children);

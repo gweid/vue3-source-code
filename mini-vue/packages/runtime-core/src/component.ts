@@ -68,6 +68,7 @@ const initProps = (instance, rawProps) => {
 // 初始化插槽
 export function initSlots(instance, children) {
   if (instance.vnode.shapeFlag & ShapeFlags.SLOTS_CHILDREN) {
+    // 如果是插槽，将插槽保存到 instance 实例上
     instance.slots = children;
   } else {
     instance.slots = {};

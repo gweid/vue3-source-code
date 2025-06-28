@@ -3905,6 +3905,147 @@ const handler = {
 
 
 
+#### 组件的插槽 slot
+
+
+
+##### 基本使用
+
+```ts
+const SlotComponent = {
+  setup(props, { slots }) {
+    return () => {
+      return h('div', [
+        slots.header(),
+        slots.footer('1')
+      ]);
+    }
+  }
+}
+
+// 在 setup 中返回渲染函数
+const VueComponent = {
+  setup(props) {
+
+    return () => {
+      // 使用插槽，第二个参数必须如果没有属性，也要给个 null
+      // 不然，使用第二个参数传对象，会是属性
+      // 要做标识：如果 h 函数的第三个参数是对象，代表插槽，而不是子组件（数组才是子组件）
+      return h(SlotComponent, null, {
+        // 具名插槽
+        header: () => h('header', 'header'),
+        // 作用域插槽，可以传参数
+        footer: (num) => h('footer', 'footer' + num),
+      });
+    }
+  },
+};
+
+render(h(VueComponent), app);
+```
+
+这里有个地方需要注意的，当 h 函数的第三个参数传的是对象，那么代表的是插槽，而不是子组件（传数组才是子组件）
+
+同时，插槽不能在 h 函数的第二个参数，第二个参数是对象的话，会被识别为组件属性
+
+
+
+##### 实现
+
+首先，在 createVnode 创建虚拟 DOM 的时候，做插槽标记
+
+```ts
+export function createVnode(type, props, children?, patchFlag?) {
+  // ...
+
+  // 虚拟 DOM 节点
+  const vnode = {
+    __v_isVnode: true,
+    type,
+    props,
+    children,
+    key: props?.key, // diff算法后面需要的key
+    el: null, // 虚拟节点需要对应的真实节点是谁
+    shapeFlag,
+    ref: props?.ref,
+    patchFlag,
+  };
+
+  // ...
+
+  if (children) {
+    // 设置 子节点的 shapeFlag 标识
+    if (Array.isArray(children)) {
+      
+    } else if (isObject(children)) {
+      // h 函数的第三个参数是对象，代表插槽
+      vnode.shapeFlag |= ShapeFlags.SLOTS_CHILDREN;
+    } else {
+      
+    }
+  }
+
+  return vnode;
+}
+```
+
+
+
+然后，在 mountComponent 函数的 setupComponent 设置组件属性的时候，处理插槽
+
+```ts
+export function setupComponent(instance) {
+  const { vnode } = instance;
+
+  // 初始化插槽
+  initSlots(instance, vnode.children); // instance.slots = children
+
+  // 赋值代理对象
+  instance.proxy = new Proxy(instance, handler);
+
+  // ...
+}
+
+
+
+export function initSlots(instance, children) {
+  if (instance.vnode.shapeFlag & ShapeFlags.SLOTS_CHILDREN) {
+    instance.slots = children;
+  } else {
+    instance.slots = {};
+  }
+}
+
+
+
+
+const publicProperty = {
+  $attrs: (instance) => instance.attrs,
+  $slots: (instance) => instance.slots, // instance.$attrs  -> instance.slots
+  // ...
+};
+
+// 代理组件实例的 handler 函数
+const handler = {
+  get(target, key) {
+    // ...
+
+    // 访问 $attrs 和 $slots 等属性
+    const getter = publicProperty[key]; // 通过不同的策略来访问对应的方法
+    if (getter) {
+      return getter(target);
+    }
+  },
+  set(target, key, value) {
+    // ...
+  },
+};
+```
+
+在代理组件实例 instance 的时候，代理 $slots，方便通过 $slots 访问
+
+
+
 ## compiler
 
 编译时相关

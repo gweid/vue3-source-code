@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   render,
+      //   Fragment,
+      //   h,
+      //   Text,
+      //   ref,
+      // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.prod.js";
+      import { render, h, ref } from "../../../packages/vue/dist/vue.js";
+
+      const SlotComponent = {
+        setup(props, { slots }) {
+          return () => {
+            return h('div', [
+              slots.header(),
+              slots.footer('1')
+            ]);
+          }
+        }
+      }
+
+      // 在 setup 中返回渲染函数
+      const VueComponent = {
+        setup(props) {
+
+          return () => {
+            // 使用插槽，第二个参数必须如果没有属性，也要给个 null
+            // 不然，使用第二个参数传对象，会是属性
+            // 要做标识：如果 h 函数的第三个参数是对象，代表插槽，而不是子组件（数组才是子组件）
+            return h(SlotComponent, null, {
+              // 具名插槽
+              header: () => h('header', 'header'),
+              // 作用域插槽，可以传参数
+              footer: (num) => h('footer', 'footer--' + num),
+            });
+          }
+        },
+      };
+
+      render(h(VueComponent), app);
+    </script>
+  </body>
+</html>
