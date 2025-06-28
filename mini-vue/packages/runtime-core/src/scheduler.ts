@@ -9,6 +9,11 @@ const resolvePromise = Promise.resolve();
 export function queueJob(job) {
   if (!queue.includes(job)) {
     // 去除重复的
+
+    // this.name = "李四";
+    // this.name = "王五"
+    // this.name = "赵六"
+    // 这三个生成的 update 会被去重，到最后只执行一次 update ---> effect.run
     queue.push(job); // 让任务入队列
   }
 

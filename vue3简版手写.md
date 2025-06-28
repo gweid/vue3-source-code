@@ -3437,10 +3437,23 @@ export function queueJob(job) {
 }
 ```
 
-- 主要通过事件环的机制，延迟更新操作 先走宏任务 --> 微任务（更新操作）
+主要通过事件环的机制，延迟更新操作 先走宏任务 --> 微任务（更新操作）
+
 - 也就是多个 update 进来，会先走宏任务，添加进 queue
+
+- 这里需要注意的是，会进行去重操作
+
+  > 也就是上面
+  >
+  > this.name = "李四";
+  > this.name = "王五"
+  > this.name = "赵六"
+  >
+  > 这三个生成的 update 会被去重，到最后只执行一次 update ---> effect.run
+
 - 等宏任务执行完，那么开启微任务，再走 resolvePromise.then
-- 此时就可以遍历 queue 执行里面的 job
+
+- 此时就可以遍历 queue 执行里面的 job（遍历执行 job，）
 
 
 
