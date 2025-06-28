@@ -3351,7 +3351,96 @@ export function setupComponent(instance) {
 
 #### 异步更新
 
+例子：
 
+```ts
+const VueComponent = {
+  data() {
+    return {
+      name: "张三",
+    };
+  },
+
+  render() {
+    setTimeout(() => {
+      this.name = "李四";
+      this.name = "王五"
+      this.name = "赵六"
+    }, 1000)
+
+    return h(Fragment, [
+      h(Text, `姓名：${this.name}`)
+    ]);
+  },
+};
+
+render(h(VueComponent), app);
+```
+
+比如上面，this.name 更新的时候，触发了三次，会更新三次组件，这是比较消耗性能的。没必要每次 this.name 变化都要更新。此时就需要通过异步渲染解决
+
+
+
+在上面组件渲染的过程中，有：
+
+```ts
+// 建立组件组件的副作用
+const effect = new ReactiveEffect(componentUpdateFn, () => update());
+
+// 组件的更新函数
+const update = (instance.update = () => effect.run());
+
+// 执行一次更新函数
+update();
+```
+
+每次更新，都会调用一次 update，那么可以对这个 update 做一个延迟，等代码都执行完了，再异步去执行。
+
+那么可以先将 update 存起来，后面再异步执行
+
+
+
+实现：将 update 放到调度函数 queueJob 中
+
+```ts
+const effect = new ReactiveEffect(componentUpdateFn, () =>
+  queueJob(update)
+);
+```
+
+
+
+> packages/runtime-core/src/scheduler.ts
+
+```ts
+const queue = []; // 缓存当前要执行的队列
+let isFlushing = false; // 是否正在执行
+const resolvePromise = Promise.resolve();
+
+export function queueJob(job) {
+  if (!queue.includes(job)) {
+    // 去除重复的
+    queue.push(job); // 让任务入队列
+  }
+
+  if (!isFlushing) {
+    isFlushing = true;
+
+    resolvePromise.then(() => {
+      isFlushing = false;
+      const copy = queue.slice(0); // 先拷贝在执行
+      queue.length = 0;
+      copy.forEach((job) => job());
+      copy.length = 0;
+    });
+  }
+}
+```
+
+- 主要通过事件环的机制，延迟更新操作 先走宏任务 --> 微任务（更新操作）
+- 也就是多个 update 进来，会先走宏任务，添加进 queue
+- 等宏任务执行完，那么开启微任务，再走 resolvePromise.then
+- 此时就可以遍历 queue 执行里面的 job
 
 
 

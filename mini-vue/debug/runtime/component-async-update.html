@@ -22,26 +22,23 @@
         data() {
           return {
             name: "张三",
-            age: 30
           };
         },
 
         render() {
-          setTimeout(() => {
-            this.name = "李四";
-          }, 1000)
+          // setTimeout(() => {
+          //   this.name = "李四";
+          //   this.name = "王五"
+          //   this.name = "赵六"
+          // }, 1000)
 
           // this == 组件的实例  内部不会通过类来产生实例了
           return h(Fragment, [
-            h(Text, `姓名：${this.name}`),
-            h("div", `年龄：${this.age}`),
+            h(Text, `姓名：${this.name}`)
           ]);
         },
       };
 
-      // template -> render
-      // 组件两个虚拟节点组成  h(VueComponent)  = vnode  产生的是组件内的虚拟节点
-      // render函数返回的虚拟节点，这个虚拟节点才是最终要渲染的内容  = subTree
       render(h(VueComponent), app);
     </script>
   </body>

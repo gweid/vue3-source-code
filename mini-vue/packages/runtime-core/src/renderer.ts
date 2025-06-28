@@ -576,6 +576,7 @@ export function createRenderer(renderOptions) {
       }
     };
 
+    // queueJob 做异步更新
     const effect = new ReactiveEffect(componentUpdateFn, () =>
       queueJob(update)
     );

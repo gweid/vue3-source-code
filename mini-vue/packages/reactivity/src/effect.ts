@@ -46,7 +46,8 @@ export class ReactiveEffect {
   public active = true; // 创建的 effect 是响应式的
 
   // fn 用户编写的函数
-  // 如果fn中依赖的数据发生变化后，需要重新调用 -> run()
+  // 如果 fn 中依赖的数据发生变化后，需要重新调用 -> run()
+  // 依赖派发更新的时候，会调用 scheduler 函数
   constructor(public fn, public scheduler) {}
 
   public get dirty() {
