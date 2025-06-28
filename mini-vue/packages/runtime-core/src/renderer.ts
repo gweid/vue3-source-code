@@ -663,9 +663,10 @@ export function createRenderer(renderOptions) {
 
     if (prevChildren || nextChildren) return true; // 有插槽直接走重新渲染即可
 
+    // props 一致，不更新
     if (prevProps === nextProps) return false;
 
-    // 如果属性不一致实则更新
+    // 如果属性不一致则更新
     return hasPropsChange(prevProps, nextProps || {});
 
     // updataProps(instance, prevProps, nextProps); // children   instance.component.proxy

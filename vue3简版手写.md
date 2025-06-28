@@ -3682,6 +3682,72 @@ function setupRenderEffect(instance, container) {
 
 
 
+#### 组件的更新
+
+在 processComponent 中，如果旧虚拟DOM 存在，那么走更新逻辑
+
+```ts
+const processComponent = (n1, n2, container, anchor, parentComponent) => {
+  if (n1 === null) {
+    mountComponent(n2, container);
+  } else {
+    // 组件的更新
+    updateComponent(n1, n2);
+  }
+};
+```
+
+
+
+组件更新：
+
+```ts
+const updateComponent = (n1, n2) => {
+  const instance = (n2.component = n1.component); // 复用组件的实例
+
+  // 判断是否要更新组件
+  if (shouldComponentUpdate(n1, n2)) {
+    instance.next = n2; // 如果调用update 有next属性，说明是属性更新，插槽更新
+    instance.update(); // 让更新逻辑统一
+  }
+};
+
+
+const shouldComponentUpdate = (n1, n2) => {
+  const { props: prevProps, children: prevChildren } = n1;
+  const { props: nextProps, children: nextChildren } = n2;
+
+  if (prevChildren || nextChildren) return true; // 有插槽直接走重新渲染即可
+
+  if (prevProps === nextProps) return false;
+
+  // 如果属性不一致则更新
+  return hasPropsChange(prevProps, nextProps || {});
+};
+
+
+const hasPropsChange = (prevProps, nextProps) => {
+  let nKeys = Object.keys(nextProps);
+  if (nKeys.length !== Object.keys(prevProps).length) {
+    return true;
+  }
+
+  for (let i = 0; i < nKeys.length; i++) {
+    const key = nKeys[i];
+    if (nextProps[key] !== prevProps[key]) {
+      return true;
+    }
+  }
+
+  return false;
+};
+```
+
+- 复用组件原有的实例
+- 判断组件是否需要更新
+  - 有插槽，直接更新
+  - 判断 props 是否有变化
+
 
 
 ## compiler
