@@ -4002,12 +4002,27 @@ export function setupComponent(instance) {
 
   // 赋值代理对象
   instance.proxy = new Proxy(instance, handler);
+  
+  
+  if (setup) {
+    // setup 上下文，就是 setup 函数的第二个参数: setup(props, setupContext) {}
+    const setupContext = {
+      slots: instance.slots,
+      // ....
+    };
+
+    // 执行 setup 函数
+    const setupResult = setup(instance.props, setupContext);
+
+    // ...
+  }
 
   // ...
 }
 
 
 
+// 初始化插槽
 export function initSlots(instance, children) {
   if (instance.vnode.shapeFlag & ShapeFlags.SLOTS_CHILDREN) {
     instance.slots = children;
@@ -4042,7 +4057,11 @@ const handler = {
 };
 ```
 
-在代理组件实例 instance 的时候，代理 $slots，方便通过 $slots 访问
+- 插槽的实现很简单，就是：
+  - h 函数的第三个参数是对象，那么当做插槽，挂载到 instance.slots 上
+  - 在处理 setup 函数的时候，将 instance.slots 放到 setupContext，那么就可以通过 setup 函数的第二个参数解构出 slots 使用
+
+- 在代理组件实例 instance 的时候，代理 $slots，方便通过 $slots 访问
 
 
 
