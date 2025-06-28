@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   render,
+      //   Fragment,
+      //   h,
+      //   Text,
+      //   ref,
+      // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.prod.js";
+      import { render, h, ref } from "../../../packages/vue/dist/vue.js";
+
+      // setup 函数，每个组件只会执行一次，可以放入 compositionApi reactive ref
+      // const VueComponent = {
+      //   setup(props) {
+
+      //     const name = ref('张三');
+
+      //     setTimeout(() => {
+      //       name.value = '李四';
+      //     }, 1000);
+
+      //     return {
+      //       name
+      //     }
+      //   },
+      //   render(props) {
+      //     return h('div', null, `姓名：${props.name}`);
+      //   }
+      // };
+
+
+      // 在 setup 中返回渲染函数
+      const VueComponent = {
+        setup(props) {
+
+          const name = ref('张三');
+
+          setTimeout(() => {
+            name.value = '李四';
+          }, 1000);
+
+          return () => {
+            return h('div', null, `姓名：${name.value}`);
+          }
+        },
+      };
+
+      render(h(VueComponent, {}), app);
+    </script>
+  </body>
+</html>

@@ -3750,6 +3750,161 @@ const hasPropsChange = (prevProps, nextProps) => {
 
 
 
+#### 组件的 setup
+
+
+
+##### setup 的特性
+
+
+
+1、可以使用[响应式 API](https://cn.vuejs.org/api/reactivity-core.html) 来声明响应式的状态，在 `setup()` 函数中**返回的对象会暴露给组件实例**
+
+```ts
+<script>
+import { ref } from 'vue'
+
+export default {
+  setup() {
+    const count = ref(0)
+
+    // 返回值会暴露给模板和其他的选项式 API 钩子
+    return {
+      count
+    }
+  },
+
+  mounted() {
+    console.log(this.count) // 0
+  }
+}
+</script>
+```
+
+
+
+2、setup` 函数的第一个参数是组件的 `props，props 是响应式的
+
+```ts
+export default {
+  props: {
+    title: String
+  },
+  setup(props) {
+    console.log(props.title)
+  }
+}
+```
+
+
+
+3、`setup` 函数的第二个参数是一个 **Setup 上下文**对象。上下文对象暴露了其他一些在 `setup` 中可能会用到的值
+
+```ts
+export default {
+  setup(props, { attrs, slots, emit, expose }) {
+    ...
+  }
+}
+```
+
+
+
+4、`setup` 也可以返回一个[渲染函数](https://cn.vuejs.org/guide/extras/render-function.html)，此时在渲染函数中可以直接使用在同一作用域下声明的响应式状态
+
+```ts
+import { h, ref } from 'vue'
+
+export default {
+  setup() {
+    const count = ref(0)
+    return () => h('div', count.value)
+  }
+}
+```
+
+
+
+##### 实现 setup
+
+在 setupComponent 函数中，对 setup 函数进行处理
+
+```ts
+export function setupComponent(instance) {
+  // ...
+  
+  // 赋值代理对象
+  instance.proxy = new Proxy(instance, handler);
+  
+  const { setup } = vnode.type;
+
+  if (setup) {
+    // setup 上下文，就是 setup 函数的第二个参数: setup(props, setupContext) {}
+    const setupContext = {
+      attrs: instance.attrs,
+      // ...
+    };
+
+    // 执行 setup 函数
+    const setupResult = setup(instance.props, setupContext);
+
+    if (isFunction(setupResult)) {
+      // 如果 setup 返回的是一个函数，那么这个函数就是渲染函数 render
+      instance.render = setupResult;
+    } else {
+      // 如果 setup 返回的是一个对象，将返回的对象会暴露给组件实例
+      instance.setupState = proxyRefs(setupResult); // 将返回的值做脱ref
+    }
+  }
+  
+  // ...
+}
+
+
+
+// 代理组件实例的 handler 函数
+const handler = {
+  get(target, key) {
+    // data 和 props属性中的名字不要重名
+    const { data, props, setupState } = target;
+
+    if (data && hasOwn(data, key)) {
+      // 如果 data 中存在 key，则返回 data[key]
+      return data[key];
+    } else if (props && hasOwn(props, key)) {
+      // 如果 props 中存在 key，则返回 props[key]
+      return props[key];
+    } else if (setupState && hasOwn(setupState, key)) {
+      return setupState[key];
+    }
+
+    // 访问 $attrs 和 $slots 等属性
+    const getter = publicProperty[key]; // 通过不同的策略来访问对应的方法
+    if (getter) {
+      return getter(target);
+    }
+  },
+  set(target, key, value) {
+    const { data, props, setupState } = target;
+    if (data && hasOwn(data, key)) {
+      data[key] = value;
+    } else if (props && hasOwn(props, key)) {
+      // props 不能修改
+      console.warn("props are readonly");
+      return false;
+    } else if (setupState && hasOwn(setupState, key)) {
+      setupState[key] = value;
+    }
+    return true;
+  },
+};
+```
+
+- setupComponent 函数中对 setup 做处理
+- 在代理对象上，当访问的属性在 setupState 上时，也做代理劫持
+
+
+
 ## compiler
 
 编译时相关

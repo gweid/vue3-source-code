@@ -153,6 +153,7 @@ export function setupComponent(instance) {
   const { data = () => {}, render, setup } = vnode.type;
 
   if (setup) {
+    // setup 上下文，就是 setup 函数的第二个参数: setup(props, setupContext) {}
     const setupContext = {
       // ....
       slots: instance.slots,
@@ -167,14 +168,20 @@ export function setupComponent(instance) {
         handler && handler(...payload);
       },
     };
+
     setCurrentInstance(instance);
+
+    // 执行 setup 函数
     const setupResult = setup(instance.props, setupContext);
+
     unsetCurrentInstance();
 
     if (isFunction(setupResult)) {
+      // 如果 setup 返回的是一个函数，那么这个函数就是渲染函数 render
       instance.render = setupResult;
     } else {
-      instance.setupState = proxyRefs(setupResult); // 将返回的值做脱ref
+      // 如果 setup 返回的是一个对象，将返回的对象会暴露给组件实例
+      instance.setupState = proxyRefs(setupResult); // 将返回的值做脱 ref
     }
   }
 
