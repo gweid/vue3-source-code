@@ -3031,6 +3031,38 @@ const processFragment = (n1, n2, container) => {
 
 
 
+同时，在卸载阶段，也要额外处理
+
+```ts
+const unmount = (vnode) => {
+  if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+    
+  } else if (vnode.type === Fragment) {
+    // 处理 Fragment 节点
+    unmountChildren(vnode.children);
+  } else if (shapeFlag & ShapeFlags.COMPONENT) {
+    
+  } else if (shapeFlag & ShapeFlags.TELEPORT) {
+    
+  } else {
+    
+  }
+}
+
+
+// 遍历 children，逐一调用 unmount 进行卸载
+const unmountChildren = (children) => {
+  for (let i = 0; i < children.length; i++) {
+    let child = children[i];
+    unmount(child);
+  }
+};
+```
+
+
+
+
+
 ## compiler
 
 编译时相关

@@ -133,6 +133,7 @@ export function createRenderer(renderOptions) {
     }
   };
 
+  // 卸载所有子节点
   const unmountChildren = (children, parentComponent) => {
     for (let i = 0; i < children.length; i++) {
       let child = children[i];
@@ -768,6 +769,7 @@ export function createRenderer(renderOptions) {
       // 需要找keep走失活逻辑
       parentComponent.ctx.deactivate(vnode);
     } else if (vnode.type === Fragment) {
+      // 处理 Fragment 节点
       unmountChildren(vnode.children, parentComponent);
     } else if (shapeFlag & ShapeFlags.COMPONENT) {
       unmount(vnode.component.subTree, parentComponent);
