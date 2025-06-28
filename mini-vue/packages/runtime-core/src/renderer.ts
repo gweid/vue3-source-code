@@ -505,8 +505,10 @@ export function createRenderer(renderOptions) {
   // 渲染走这里，更新也走这里
   const processFragment = (n1, n2, container, anchor, parentComponent) => {
     if (n1 == null) {
+      // 初始化
       mountChildren(n2.children, container, anchor, parentComponent);
     } else {
+      // 更新
       patchChildren(n1, n2, container, anchor, parentComponent);
     }
   };
@@ -786,8 +788,7 @@ export function createRenderer(renderOptions) {
    * @param vnode 虚拟节点
    * @param container 容器
    */
-  const render = (vnode, container) => {
-    debugger
+  const render = (vnode, container) => { 
     if (vnode == null) {
       // 新虚拟 DOM 是 null，要移除当前容器中的 dom 元素
       if (container._vnode) {

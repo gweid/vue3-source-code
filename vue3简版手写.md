@@ -2832,9 +2832,15 @@ patch 函数中，除了处理 element 节点，还会对 text、Fragment 等节
 **使用：**
 
 ```ts
-let text = h(Text, {}, "啦啦啦啦");
+const text = h(Text, "啦啦啦啦");
 
 render(text, app);
+
+// 更新
+setTimeout(() => {
+  const text2 = h(Text, "123");
+  render(text2, app);
+}, 1000);
 ```
 
 
@@ -2881,12 +2887,33 @@ export function createVnode(type, props, children?) {
 }
 ```
 
+定义一个 Text 标识符，在通过 h 函数创建虚拟 DOM 时，传入 Text 标识是文本
+
 
 
 > packages/runtime-core/src/renderer.ts
 
 ```ts
 import { Text } from "./createVnode";
+
+
+const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
+  // ...
+
+  const { type, shapeFlag, ref } = n2;
+
+  switch (type) {
+    case Text:
+      // 文本节点的处理
+      processText(n1, n2, container);
+      break;
+    case Fragment:
+      // ...
+    default:
+      // ...
+  }
+};
+
 
 
 /**
@@ -2912,35 +2939,6 @@ const processText = (n1, n2, container) => {
     }
   }
 };
-
-
-
-const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
-  if (n1 === n2) {
-    // 新旧虚拟 DOM 相等，即两次渲染同一个元素，直接跳过即可
-    return;
-  }
-
-  // 新旧虚拟 DOM 的 type 或者 key 不相等，直接移除老的 DOM 元素，初始化新的 DOM 元素
-  // 也就是说，diff 比较的前提是 type 和 key 必须相同
-  if (n1 && !isSameVnode(n1, n2)) {
-    unmount(n1, parentComponent);
-    n1 = null; // 设置 n1 为 null，执行后续的 n2 的初始化
-  }
-
-  const { type, shapeFlag, ref } = n2;
-
-  switch (type) {
-    case Text:
-      // 文本节点的处理
-      processText(n1, n2, container);
-      break;
-    case Fragment:
-      // ...
-    default:
-      // ...
-  }
-};
 ```
 
 - 通过 Symbol("Text") 定义文本标识
@@ -2955,7 +2953,81 @@ const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
 
 ### Fragment 节点
 
+Fragment：并不会产生额外的标签
 
+
+
+**使用：**
+
+```ts
+const fragment = h(Fragment, [
+  h("div", "hello"),
+  h("div", "你好")
+]);
+
+render(fragment, app);
+
+// 更新
+setTimeout(() => {
+  const fragment2 = h(Fragment, [
+    h("div", "你好"),
+    h("div", "今天天气好")
+  ]);
+
+  render(fragment2, app);
+}, 1000);
+```
+
+
+
+**实现：**
+
+与 Text 相似，定义一个 Fragment 标识符，在调用 h 函数创建虚拟 DOM 的时候，传入 Fragment 表示是 Fragment 标签
+
+```ts
+export const Fragment = Symbol("Fragment"); // 定义 Fragment 片段标识
+```
+
+
+
+>packages/runtime-core/src/renderer.ts
+
+```ts
+const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
+  // ...
+
+  const { type, shapeFlag, ref } = n2;
+
+  switch (type) {
+    case Text:
+      // ...
+    case Fragment:
+      // 处理 Fragment 节点
+      processFragment(n1, n2, container);
+      break;
+    default:
+      // ...
+  }
+};
+
+
+
+const processFragment = (n1, n2, container) => {
+  if (n1 == null) {
+    // 初始化
+    mountChildren(n2.children, container);
+  } else {
+    // 更新
+    patchChildren(n1, n2, container);
+  }
+};
+```
+
+- 初始化使用 mountChildren。
+  - 与元素标签的 mountElement 相比，就是少了根据 type 创建标签的过程
+  - 而 mountElement 是先创建 type 标签，再根据子节点是数组，调用 mountChildren
+- 更新使用 patchChildren
+  - 更新也是，相对于元素标签，少了根标签的比对，直接使用 patchChildren
 
 
 

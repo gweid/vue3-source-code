@@ -17,16 +17,23 @@
     //   h,
     // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js";
 
-    import { render, h, createVnode, Text } from "../../../packages/vue/dist/vue.js";
+    import { render, h, createVnode, Fragment } from "../../../packages/vue/dist/vue.js";
 
-    const text = h(Text, "啦啦啦啦");
+    const fragment = h(Fragment, [
+      h("div", "hello"),
+      h("div", "你好")
+    ]);
 
-    render(text, app);
+    render(fragment, app);
 
     // 更新
     setTimeout(() => {
-      const text2 = h(Text, "123");
-      render(text2, app);
+      const fragment2 = h(Fragment, [
+        h("div", "你好"),
+        h("div", "今天天气好")
+      ]);
+
+      render(fragment2, app);
     }, 1000);
 
   </script>
