@@ -85,26 +85,29 @@ const handler = {
   get(target, key) {
     // data 和 props属性中的名字不要重名
     const { data, props, setupState } = target;
+
     if (data && hasOwn(data, key)) {
+      // 如果 data 中存在 key，则返回 data[key]
       return data[key];
     } else if (props && hasOwn(props, key)) {
+      // 如果 props 中存在 key，则返回 props[key]
       return props[key];
     } else if (setupState && hasOwn(setupState, key)) {
       return setupState[key];
     }
+
+    // 访问 $attrs 和 $slots 等属性
     const getter = publicProperty[key]; // 通过不同的策略来访问对应的方法
     if (getter) {
       return getter(target);
     }
-    // 对于一些无法修改的属性 $slots  $attrs ...  $attrs-> instance.attrs
   },
   set(target, key, value) {
     const { data, props, setupState } = target;
     if (data && hasOwn(data, key)) {
       data[key] = value;
     } else if (props && hasOwn(props, key)) {
-      // 我们用户可以修改属性中的嵌套属性（内部不会报错）但是不合法
-      // props[key] = value;
+      // props 不能修改
       console.warn("props are readonly");
       return false;
     } else if (setupState && hasOwn(setupState, key)) {

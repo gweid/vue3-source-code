@@ -3572,7 +3572,115 @@ const VueComponent = {
 render(h(VueComponent, { name: '张三', age: 18 }), app)
 ```
 
-如上，在实际使用中，访问 props 属性时，希望可以直接通过 this.name，而不是 this.props.name
+如上，在实际使用中，访问 props 属性时，希望可以直接通过 this.name 和 this.address 来访问属性，而不是 this.props.name 和 this.data.address
+
+此时，就需要对组件的属性进行代理
+
+
+
+```ts
+export function setupComponent(instance) {
+  const { vnode } = instance;
+
+  // ...
+  // 赋值代理对象
+  instance.proxy = new Proxy(instance, handler);
+  
+  // ...
+}
+```
+
+首先，在给组件实例赋值的时候，赋值一个代理对象 proxy，通过 new Proxy(instance, handler) 代理整个组件实例
+
+
+
+handler 函数：
+
+```ts
+const publicProperty = {
+  $attrs: (instance) => instance.attrs,
+  // ...
+};
+
+
+
+const handler = {
+  get(target, key) {
+    // data 和 props属性中的名字不要重名
+    const { data, props, setupState } = target;
+
+    if (data && hasOwn(data, key)) {
+      // 如果 data 中存在 key，则返回 data[key]
+      return data[key];
+    } else if (props && hasOwn(props, key)) {
+      // 如果 props 中存在 key，则返回 props[key]
+      return props[key];
+    }
+
+    // 访问 $attrs 和 $slots 等属性
+    const getter = publicProperty[key]; // 通过不同的策略来访问对应的方法
+    if (getter) {
+      return getter(target);
+    }
+  },
+  set(target, key, value) {
+    const { data, props, setupState } = target;
+    if (data && hasOwn(data, key)) {
+      data[key] = value;
+    } else if (props && hasOwn(props, key)) {
+      // props 不能修改
+      console.warn("props are readonly");
+      return false;
+    }
+
+    return true;
+  },
+};
+```
+
+- 代理 data 和 props，使得可以通过 this.xxx 访问 data 和 props 中的属性
+- 代理 attrs，通过 this.$attrs 访问属性
+
+
+
+然后，在执行组件 render 函数的时候，显式绑定 this 为 instance.proxy 对象
+
+```ts
+function setupRenderEffect(instance, container) {
+  
+  const { render, proxy } = instance
+  
+  const componentUpdateFn = () => {
+    if (!instance.isMounted) {
+      // 将 this 指向代理的 proxy，同时参数也是传代理的 props
+      const subTree = render.call(proxy, proxy);
+
+      patch(null, subTree, container, anchor, instance);
+
+      instance.isMounted = true;
+      instance.subTree = subTree;
+    } else {
+      // 基于状态的组件更新
+
+      
+      const subTree = render.call(proxy, proxy);
+
+      patch(instance.subTree, subTree, container);
+
+      instance.subTree = subTree;
+  };
+
+  // queueJob 做异步更新
+  const effect = new ReactiveEffect(componentUpdateFn, () =>
+    queueJob(update)
+  );
+
+  const update = (instance.update = () => effect.run());
+  update();
+}
+```
+
+
 
 
 
