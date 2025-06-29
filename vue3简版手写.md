@@ -4135,6 +4135,156 @@ export function setupComponent(instance) {
 
 
 
+#### teleport 组件
+
+
+
+##### 实现
+
+
+
+定义一个 teleport 组件
+
+> packages/runtime-core/src/components/Teleport.ts
+
+```ts
+export const Teleport = {
+  // 标识 Teleport 组件
+  __isTeleport: true,
+
+
+  process(n1, n2, container, anchor, parentComponent, internals) {
+    let { mountChildren, patchChildren, move } = internals;
+
+    if (!n1) {
+      // n1 不存在，是挂载
+
+      // 获取需要挂载到的目标元素
+      // 使用 teleport 的时候，通过 to 属性指定目标元素
+      const target = (n2.target = document.querySelector(n2.props.to));
+
+      if (target) {
+        // 将子节点挂载到指定目标节点
+        mountChildren(n2.children, target, parentComponent);
+      }
+    } else {
+      // teleport 更新
+
+      patchChildren(n1, n2, n2.target, parentComponent);
+
+      if (n2.props.to !== n1.props.to) {
+        const nextTarget = document.querySelector(n2.props.to);
+
+        // 将子节点移动到指定目标节点
+        n2.children.forEach((child) => move(child, nextTarget, anchor));
+      }
+    }
+  },
+};
+```
+
+- 通过 __isTeleport 标识为 teleport 组件
+- 定义 process 函数，在执行patch 的时候，通过 type.process 执行
+  - 初次挂载逻辑：获取需要挂载到的目标元素，调用 mountChildren 将子节点挂载到指定目标节点
+  - 更新逻辑：patchChildren 更新 teleport 的子元素，如果新旧虚拟 dom 的 to 不一样，通过 move 移动到新位置
+
+
+
+在创建 vnode 的时候，对 teleport 做标识
+
+```ts
+export const isTeleport = (value) => value.__isTeleport;
+
+
+export function createVnode(type, props, children?) {
+  const shapeFlag = isString(type)
+    ? ShapeFlags.ELEMENT // 元素
+    : isTeleport(type)
+      ? ShapeFlags.TELEPORT // teleport 组件
+      : isObject(type)
+        ? ShapeFlags.STATEFUL_COMPONENT // 带状态的组件
+        : isFunction(type)
+          ? ShapeFlags.FUNCTIONAL_COMPONENT // 函数组件
+          : 0;
+
+  // 虚拟 DOM 节点
+  const vnode = {
+    __v_isVnode: true,
+    type,
+    props,
+    children,
+    key: props?.key, // diff算法后面需要的key
+    el: null, // 虚拟节点需要对应的真实节点是谁
+    shapeFlag,
+    ref: props?.ref,
+    patchFlag,
+  };
+  
+  return vnode
+}
+```
+
+这里的 type 传的就是 teleport 对象，ShapeFlags 标记为 TELEPORT，也就是说，teleport 的 vnode
+
+```ts
+{
+  type: Teleport,
+  props: { to: '' }
+  children: []
+}
+```
+
+
+
+
+
+在 render 的 patch 的时候，区分 teleport 做处理
+
+```ts
+const patch = (n1, n2, container) => {
+  const { type, shapeFlag, ref } = n2;
+  
+  switch (type) {
+    case Text:
+      // ...
+    case Fragment:
+      // ...
+    default:
+      if (shapeFlag & ShapeFlags.ELEMENT) {
+        // ...
+      } else if (shapeFlag & ShapeFlags.TELEPORT) {
+        // 处理 teleport 节点
+        // 调用 teleport 定义的 process 函数，并将参数传递过去
+        type.process(n1, n2, container, anchor, parentComponent, {
+          mountChildren,
+          patchChildren,
+          move(vnode, container, anchor) {
+            // 此方法可以将组件 或者dom元素移动到指定的位置
+            hostInsert(
+              vnode.component ? vnode.component.subTree.el : vnode.el,
+              container,
+              anchor
+            );
+          },
+        });
+      } else if (shapeFlag & ShapeFlags.COMPONENT) {
+        // ...
+      }
+  }
+}
+```
+
+通过 type
+
+
+
+##### 总结
+
+可以看到，teleport 是真实 dom 被传送走，但是虚拟 dom 留在原来位置。这就代表：
+
+- 生命周期、事件、响应式等依旧和上下文绑定
+- v-if、ref、emit 不会失效
+
 
 
 ## compiler

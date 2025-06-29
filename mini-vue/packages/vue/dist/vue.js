@@ -447,6 +447,7 @@ function traverse(source, depth, currentDepth = 0, seen = /* @__PURE__ */ new Se
 
 // packages/runtime-core/src/components/Teleport.ts
 var Teleport = {
+  // 标识 Teleport 组件
   __isTeleport: true,
   remove(vnode, unmountChildren) {
     const { shapeFlag, children } = vnode;
