@@ -4065,6 +4065,78 @@ const handler = {
 
 
 
+#### 组件的 emit
+
+在组件中，可以通过 emit 触发自定义事件
+
+
+
+**基本使用**
+
+```ts
+const VueComponent = {
+  setup(props, { emit }) {
+
+    return () => {
+      // 通过 emit 触发自定义事件
+      return h('button', { onClick: () => emit('myEvent', '123') }, '点击');
+    }
+  },
+};
+
+// 绑定自定义事件
+render(h(VueComponent, { onMyEvent: (value) => alert(value) }), app);
+```
+
+
+
+**实现**
+
+在 mountComponent 调用 setupComponent 的时候，给 setup 添加 emit 方法
+
+```ts
+export function setupComponent(instance) {
+  const { vnode } = instance;
+  
+  // ...
+  
+  if (setup) {
+    // setup 上下文，就是 setup 函数的第二个参数: setup(props, setupContext) {}
+    const setupContext = {
+      // ....
+      emit(event, ...payload) {
+        // onMyEvent
+        // 使用 emit('myEvent', '123') 触发事件，并传递参数
+
+        // 第一个字母大写，拼接成事件名：onMyEvent
+        const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+
+        // h('button', { onMyEvent: (value) => alert(value) }, '点击');
+        // 从 props 中获取事件函数
+        const handler = instance.vnode.props[eventName];
+        // 执行事件函数
+        handler && handler(...payload);
+      },
+    };
+
+    // 执行 setup 函数
+    const setupResult = setup(instance.props, setupContext);
+
+    if (isFunction(setupResult)) {
+      // 如果 setup 返回的是一个函数，那么这个函数就是渲染函数 render
+      instance.render = setupResult;
+    } else {
+      // 如果 setup 返回的是一个对象，将返回的对象会暴露给组件实例
+      instance.setupState = proxyRefs(setupResult); // 将返回的值做脱 ref
+    }
+  }
+}
+```
+
+
+
+
+
 ## compiler
 
 编译时相关

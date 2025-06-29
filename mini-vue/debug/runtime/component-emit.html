@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   render,
+      //   Fragment,
+      //   h,
+      //   Text,
+      //   ref,
+      // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.prod.js";
+      import { render, h, ref } from "../../../packages/vue/dist/vue.js";
+
+      // 在 setup 中返回渲染函数
+      const VueComponent = {
+        setup(props, { emit }) {
+
+          return () => {
+            // 通过 emit 触发自定义事件
+            return h('button', { onClick: () => emit('myEvent', '123') }, '点击');
+          }
+        },
+      };
+
+      // 绑定自定义事件
+      render(h(VueComponent, { onMyEvent: (value) => alert(value) }), app);
+    </script>
+  </body>
+</html>

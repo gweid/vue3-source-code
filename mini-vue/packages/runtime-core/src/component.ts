@@ -164,8 +164,15 @@ export function setupComponent(instance) {
       },
       emit(event, ...payload) {
         // onMyEvent
+        // 使用 emit('myEvent', '123') 触发事件，并传递参数
+
+        // 第一个字母大写，拼接成事件名：onMyEvent
         const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+
+        // h('button', { onMyEvent: (value) => alert(value) }, '点击');
+        // 从 props 中获取事件函数
         const handler = instance.vnode.props[eventName];
+        // 执行事件函数
         handler && handler(...payload);
       },
     };
