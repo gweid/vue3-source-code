@@ -4642,7 +4642,210 @@ function setRef(rawRef, vnode) {
 
 #### 组件生命周期
 
+组件的生命周期钩子，会在组件执行到某个阶段触发
 
+
+
+##### 基本使用
+
+```ts
+const ChildComponent = {
+  props: {
+    value: String,
+  },
+
+  setup(props, { emit, expose, slots, attrs }) {
+    //instance -> 钩子关联在一起，在特定的时机去调用对应的钩子
+    onBeforeMount(() => {
+      console.log(getCurrentInstance(), "child bug");
+      console.log("child beforemount");
+    });
+    onMounted(() => {
+      console.log("child mounted");
+    });
+    onBeforeUpdate(() => {
+      console.log("child beforeupdate");
+    });
+    onUpdated(() => {
+      console.log("child updated");
+    });
+
+    return () => {
+      return h("div", props.value);
+    };
+  },
+};
+
+const ParentComponent = {
+  setup(props, { emit }) {
+    console.log(getCurrentInstance(), "parent");
+
+    const val = ref("a");
+
+    setTimeout(() => {
+      val.value = "b";
+    }, 1000);
+
+    onBeforeMount(() => {
+      const instance = getCurrentInstance();
+      console.log("parent beforemount", instance);
+    });
+    onMounted(() => {
+      console.log("parent mounted");
+    });
+    onMounted(() => {
+      console.log("parent mounted");
+    });
+    onBeforeUpdate(() => {
+      console.log("update beforeupdate");
+    });
+    onUpdated(() => {
+      console.log("update updated");
+    });
+
+    return () => {
+      return h(ChildComponent, { value: val.value });
+    };
+  },
+};
+
+render(h(ParentComponent), app);
+```
+
+
+
+##### 实现
+
+> packages/runtime-core/src/apiLifecycle.ts
+
+```ts
+import {
+  currentInstance,
+  setCurrentInstance,
+  unsetCurrentInstance,
+} from "./component";
+
+export const enum LifeCycles {
+  BEFORE_MOUNT = "bm",
+  MOUNTED = "m",
+  BEFORE_UPDATE = "bu",
+  UPDATED = "u",
+}
+
+function createHook(type: LifeCycles) {
+  // 将当前的实例存到了此钩子上
+
+  // onMounted(() => { console.log("onMounted") });
+  return (hook, target = currentInstance) => {
+    if (target) {
+      // 当前钩子是在组件中运行的
+      // 往组件实例上挂生命周期钩子回调函数
+      // 比如 onMounted 生命周期，可能调用了多次，使用数组存储：instance.m = [fn1, fn2]
+      const hooks = target[type] || (target[type] = []);
+
+      const wrapHook = () => {
+        // 设置当前组件实例
+        setCurrentInstance(target);
+
+        // 执行钩子的回调
+        hook.call(target);
+
+        unsetCurrentInstance();
+      };
+
+      // 在执行函数内部保证实例是正确
+      hooks.push(wrapHook); // 这里有坑因为setup执行完毕后，就会将instance清空
+    }
+  };
+}
+
+export const onBeforeMount = createHook(LifeCycles.BEFORE_MOUNT);
+export const onMounted = createHook(LifeCycles.MOUNTED);
+export const onBeforeUpdate = createHook(LifeCycles.BEFORE_UPDATE);
+export const onUpdated = createHook(LifeCycles.UPDATED);
+
+// 遍历执行相关钩子的回调函数
+export function invokeArray(fns) {
+  for (let i = 0; i < fns.length; i++) {
+    fns[i]();
+  }
+}
+```
+
+- 通过 createHook 函数分别创建不同的生命周期函数
+- 使用时在 setup 中调用，调用时触发：
+  - 将生命周期的回调函数，存储到组件实例上，以数组的形式，因为可能是多次调用同一个生命周期钩子
+- 定义 invokeArray 函数，用于遍历触发组件实例上保存的生命周期回调函数
+
+
+
+触发生命周期
+
+```ts
+function setupRenderEffect(instance, container, anchor, parentComponent) {
+  const componentUpdateFn = () => {
+    // 要在这里面区分，是第一次还是之后的
+
+    const { bm, m } = instance;
+
+    if (!instance.isMounted) {
+
+      // 触发 beforeMount 生命周期
+      if (bm) {
+        invokeArray(bm);
+      }
+
+      // 调用组件的 render 函数，得到子节点 VNode
+      const subTree = renderComponent(instance);
+
+      // 将子节点 VNode 挂载到容器中
+      // 注意，此时就会将当前组件实例 instance 传入，作为 parentComponent 参数，这就建立了父子组件关系
+      patch(null, subTree, container, anchor, instance);
+
+      instance.isMounted = true;
+      instance.subTree = subTree;
+
+      // 触发 mounted 生命周期
+      if (m) {
+        invokeArray(m);
+      }
+    } else {
+      // 基于状态的组件更新
+
+      const { next, bu, u } = instance;
+      if (next) {
+        // 更新属性和插槽
+        updateComponentPreRender(instance, next);
+        // slots , props
+      }
+
+      // 触发 beforeUpdate 生命周期
+      if (bu) {
+        invokeArray(bu);
+      }
+
+      const subTree = renderComponent(instance);
+      patch(instance.subTree, subTree, container, anchor, instance);
+      instance.subTree = subTree;
+
+      // 触发 updated 生命周期
+      if (u) {
+        invokeArray(u);
+      }
+    }
+  };
+
+  // queueJob 做异步更新
+  const effect = new ReactiveEffect(componentUpdateFn, () =>
+    queueJob(update)
+  );
+
+  const update = (instance.update = () => effect.run());
+  update();
+}
+```
+
+在组件副作用函数 componentUpdateFn 中，分别触发：beforeMount、Mounted、beforeUpdate、updated 生命周期
 
 
 

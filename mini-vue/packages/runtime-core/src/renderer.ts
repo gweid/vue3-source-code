@@ -539,8 +539,12 @@ export function createRenderer(renderOptions) {
   function setupRenderEffect(instance, container, anchor, parentComponent) {
     const componentUpdateFn = () => {
       // 要在这里面区分，是第一次还是之后的
+      
       const { bm, m } = instance;
+
       if (!instance.isMounted) {
+
+        // 触发 beforeMount 生命周期
         if (bm) {
           invokeArray(bm);
         }
@@ -555,6 +559,7 @@ export function createRenderer(renderOptions) {
         instance.isMounted = true;
         instance.subTree = subTree;
 
+        // 触发 mounted 生命周期
         if (m) {
           invokeArray(m);
         }
@@ -568,6 +573,7 @@ export function createRenderer(renderOptions) {
           // slots , props
         }
 
+        // 触发 beforeUpdate 生命周期
         if (bu) {
           invokeArray(bu);
         }
@@ -576,6 +582,7 @@ export function createRenderer(renderOptions) {
         patch(instance.subTree, subTree, container, anchor, instance);
         instance.subTree = subTree;
 
+        // 触发 updated 生命周期
         if (u) {
           invokeArray(u);
         }
