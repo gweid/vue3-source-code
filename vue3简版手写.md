@@ -4851,7 +4851,7 @@ function setupRenderEffect(instance, container, anchor, parentComponent) {
 
 #### keep-alive
 
-
+作用：在多个组件间动态切换时缓存被移除的组件实例
 
 
 
