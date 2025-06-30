@@ -4287,6 +4287,318 @@ const patch = (n1, n2, container) => {
 
 
 
+#### 实现 provide、inject
+
+
+
+##### 基本使用
+
+```ts
+// inject 使用数据
+const InjectComponent = {
+  setup(props) {
+    const name = inject('name', '默认');
+
+    return () => {
+      return h('div', `姓名：${name.value}`);
+    }
+  }
+}
+
+// provide 提供数组
+const ProvideComponent = {
+  setup(props) {
+    const name = ref('张三');
+
+    setTimeout(() => {
+      name.value = '李四';
+    }, 1000);
+
+    provide('name',name);
+
+    return () => {
+      return h(InjectComponent);
+    }
+  }
+}
+
+render(h(ProvideComponent), app)
+```
+
+
+
+##### 实现
+
+provide 与 inject 基本原理：
+
+- 默认情况下，子组件会从父组件中继承 provide 的值
+- 如果子组件中提供了新的 provide，那么子组件的 provide 会覆盖父组件的 provide
+- comp1 --> comp2 --> comp3：形成一个链，将 comp1 的 provide 传递给 comp2，将 comp2 的 provide 传递给 comp3。这样, comp3 中 provide 就包含了 comp1 和 comp2 的 provide 的值
+
+
+
+**首先，建立父子组件关系：**
+
+在 createComponentInstance 中，创建组件实例时，会记录 parent。根组件没有父组件，所以是 null
+
+```ts
+const mountComponent = (vnode, container, anchor, parentComponent) => {
+  // 1. 先创建组件实例，并将组件实例挂载到虚拟 DOM 的 component 属性上
+  const instance = (vnode.component = createComponentInstance(
+    vnode,
+    parentComponent
+  ));
+}
+
+
+export function createComponentInstance(vnode, parent?) {
+  const instance = {
+    // ...
+    parent
+  }
+
+  return instance;
+}
+```
+
+
+
+然后，在创建组件的 effect 的时候，会递归 patch 子组件，
+
+```ts
+const mountComponent = (vnode, container, anchor, parentComponent) => {
+  // 1. 先创建组件实例，并将组件实例挂载到虚拟 DOM 的 component 属性上
+  const instance = (vnode.component = createComponentInstance(
+    vnode,
+    parentComponent
+  ));
+
+
+  // 2. 给组价实例的属性赋值
+  setupComponent(instance);
+
+  // 3. 创建组件的 effect，使得组件可以根据自身状态变化而更新
+  setupRenderEffect(instance, container, anchor, parentComponent);
+};
+
+
+
+
+function setupRenderEffect(instance, container, anchor, parentComponent) {
+  const componentUpdateFn = () => {
+    // 要在这里面区分，是第一次还是之后的
+    if (!instance.isMounted) {
+
+      // 调用组件的 render 函数，得到子节点 VNode
+      const subTree = renderComponent(instance);
+
+      // 将子节点 VNode 挂载到容器中
+      // 注意，此时就会将当前组件实例 instance 传入，作为 parentComponent 参数，这就建立了父子组件关系
+      patch(null, subTree, container, anchor, instance);
+
+      // ...
+    } else {
+      // ...
+    }
+  };
+
+  // queueJob 做异步更新
+  const effect = new ReactiveEffect(componentUpdateFn, () =>
+    queueJob(update)
+  );
+
+  const update = (instance.update = () => effect.run());
+  update();
+}
+```
+
+在 setupRenderEffect 的 componentUpdateFn 函数中，会 patch 子组件，此时会传入当前组件实例 instance
+
+```text
+patch ---> processComponent ---> mountComponent ---> createComponentInstance
+```
+
+子组件的 patch 又会走到 createComponentInstance，此时 createComponentInstance 的 parentComponent 参数就有值了，是父组件的组件实例
+
+
+
+**然后，实现 provide 链**
+
+comp1 --> comp2 --> comp3：形成一个链，将 comp1 的 provide 传递给 comp2，将 comp2 的 provide 传递给 comp3。使得 comp3 中的 provide 包含 comp1 和 comp2 的
+
+```ts
+export function createComponentInstance(vnode, parent?) {
+  const instance = {
+    // ...
+    provides: parent ? parent.provides : Object.create(null),
+  };
+
+  // p1 -> p2 -> p3
+  // 所有的组件 provide 的值都一样
+  // 父组件有，就继承父组件的 provide，父组件没有，就创建一个空对象
+  return instance;
+}
+```
+
+在创建组件实例的时候，
+
+
+
+
+
+**然后，实现 provide 与 inject 函数**
+
+
+
+provide：
+
+> packages/runtime-core/src/apiInject.ts
+
+```ts
+import { currentInstance } from "./component";
+
+
+//  1. 默认情况下，子组件会从父组件中继承 provide 的值
+//  2. 如果子组件中提供了新的 provide，那么子组件的 provide 会合并父组件的
+export function provide(key, value) {
+  // provide 和 inject 是建立在组件基础上的
+  if (!currentInstance) return;
+
+  // 获取父组件的 provide
+  const parentProvide = currentInstance.parent?.provides;
+
+  // 获取当前组件的 provide
+  // 在创建组件实例的时候，就创建了 provides，继承自父组件
+  let provides = currentInstance.provides;
+
+  if (parentProvide === provides) {
+    // 如果在子组件上新增了 provides 需要拷贝一份全新的
+    // 这样就能做到：子组件的 provide 可以访问到父组件的，但是子组件新增的 provide 父组件没法访问
+    provides = currentInstance.provides = Object.create(provides);
+  }
+
+  // 将 provide 的值设置到当前组件的 provides 中
+  provides[key] = value;
+}
+```
+
+- 首先，provide 是建立在组件基础上的，没有组件，就没有 provide
+
+- 获取父组件和当前组件的 provide
+
+- 给当前组件设置 provides
+
+  > 需要注意的是：
+  >
+  > 如果在子组件上新增了 provides 需要拷贝一份全新的，赋值给 currentInstance.provides
+  >
+  > 这样就能做到：子组件可以访问到父组件所有的 provide，但是子组件新增的 provide 父组件没法访问
+
+
+
+inject：
+
+> packages/runtime-core/src/apiInject.ts
+
+```ts
+import { currentInstance } from "./component";
+
+
+export function inject(key, defaultValue) {
+  // 建立在组件基础上的
+  if (!currentInstance) return;
+
+  // 获取父组件的 provides（跨组件传值，所以肯定是获取父组件的）
+  const provides = currentInstance.parent?.provides;
+
+  if (provides && key in provides) {
+    return provides[key]; // 从 provides 中取出来返回
+  } else {
+    // 返回默认值
+    // inject('msg', '默认值')
+    return defaultValue;
+  }
+}
+```
+
+- 获取父组件的 provides（跨组件传值，所以肯定是获取父组件的）
+- 有值，从 provides 中取出来返回
+- 没有值，返回返回默认值
+
+
+
+上面有一个问题：currentInstance 是怎么来的
+
+> packages/runtime-core/src/component.ts
+
+```ts
+export function setupComponent(instance) {
+  const { vnode } = instance;
+
+  // ... 
+
+  const { data = () => {}, render, setup } = vnode.type;
+
+  if (setup) {
+    // setup 上下文，就是 setup 函数的第二个参数: setup(props, setupContext) {}
+    const setupContext = {
+      // ...
+    };
+
+    // 设置全局变量 currentInstance 为当前组件实例
+    setCurrentInstance(instance);
+
+    // 执行 setup 函数
+    const setupResult = setup(instance.props, setupContext);
+
+    // 执行完 setup 函数后，将当前组件实例（currentInstance）设置为 null
+    unsetCurrentInstance();
+
+    // ...
+}
+
+
+
+export let currentInstance = null;
+
+export const getCurrentInstance = () => {
+  return currentInstance;
+};
+
+export const setCurrentInstance = (instance) => {
+  currentInstance = instance;
+};
+
+export const unsetCurrentInstance = () => {
+  currentInstance = null;
+};
+```
+
+可以看到，在 setupComponent 函数中
+
+- 执行 setup 函数之前，先将全局变量 currentInstance 设置为当前组件实例
+- 执行完 setup 函数之后，将  currentInstance 设置为 null
+
+
+
+#### 实现 ref
+
+
+
+
+
+#### 组件的生命周期
+
+
+
+
+
+#### keep-alive
+
+
+
+
+
 ## compiler
 
 编译时相关

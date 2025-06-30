@@ -538,14 +538,20 @@ export function createRenderer(renderOptions) {
   // 创建组件的 effect，使得组件可以根据自身状态变化而更新
   function setupRenderEffect(instance, container, anchor, parentComponent) {
     const componentUpdateFn = () => {
-      // 我们要在这里面区分，是第一次还是之后的
+      // 要在这里面区分，是第一次还是之后的
       const { bm, m } = instance;
       if (!instance.isMounted) {
         if (bm) {
           invokeArray(bm);
         }
+
+        // 调用组件的 render 函数，得到子节点 VNode
         const subTree = renderComponent(instance);
+
+        // 将子节点 VNode 挂载到容器中
+        // 注意，此时就会将当前组件实例 instance 传入，作为 parentComponent 参数，这就建立了父子组件关系
         patch(null, subTree, container, anchor, instance);
+
         instance.isMounted = true;
         instance.subTree = subTree;
 
@@ -616,10 +622,6 @@ export function createRenderer(renderOptions) {
 
     // 3. 创建组件的 effect，使得组件可以根据自身状态变化而更新
     setupRenderEffect(instance, container, anchor, parentComponent);
-
-    // 根据propsOptions 来区分出 props,attrs
-    // 元素更新  n2.el = n1.el
-    // 组件更新  n2.component.subTree.el =  n1.component.subTree.el
   };
 
   const hasPropsChange = (prevProps, nextProps) => {
@@ -715,7 +717,7 @@ export function createRenderer(renderOptions) {
    * @param n2 新虚拟 DOM
    * @param container 容器
    * @param anchor 锚点
-   * @param parentComponent 父组件
+   * @param parentComponent 父组件(通过 parentComponent 构建父子关系)
    */
   const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
     if (n1 === n2) {

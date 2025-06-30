@@ -24,9 +24,10 @@ export function createComponentInstance(vnode, parent?) {
     exposed: null,
     parent,
     ctx: {} as any, // 如果是keepAlive 组件，就将dom api放入到这个属性上
-    // p1 -> p2 -> p3
-    // 所有的组件provide的都一样
 
+    // p1 -> p2 -> p3
+    // 所有的组件 provide 的值都一样
+    // 父组件有，就继承父组件的 provide，父组件没有，就创建一个空对象
     provides: parent ? parent.provides : Object.create(null),
   };
 
@@ -177,11 +178,13 @@ export function setupComponent(instance) {
       },
     };
 
+    // 设置全局变量 currentInstance 为当前组件实例
     setCurrentInstance(instance);
 
     // 执行 setup 函数
     const setupResult = setup(instance.props, setupContext);
 
+    // 执行完 setup 函数后，将当前组件实例（currentInstance）设置为 null
     unsetCurrentInstance();
 
     if (isFunction(setupResult)) {

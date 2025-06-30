@@ -645,7 +645,8 @@ function createComponentInstance(vnode, parent) {
     ctx: {},
     // 如果是keepAlive 组件，就将dom api放入到这个属性上
     // p1 -> p2 -> p3
-    // 所有的组件provide的都一样
+    // 所有的组件 provide 的值都一样
+    // 父组件有，就继承父组件的 provide，父组件没有，就创建一个空对象
     provides: parent ? parent.provides : /* @__PURE__ */ Object.create(null)
   };
   return instance;
@@ -1293,7 +1294,7 @@ function createRenderer(renderOptions2) {
   };
 }
 
-// packages/runtime-core/src/apiProvide.ts
+// packages/runtime-core/src/apiInject.ts
 function provide(key, value) {
   if (!currentInstance)
     return;

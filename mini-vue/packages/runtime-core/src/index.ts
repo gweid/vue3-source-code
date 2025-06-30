@@ -6,7 +6,7 @@ export * from "./renderer";
 export * from "@vue/reactivity";
 export * from "./apiLifecycle";
 export * from "./component";
-export * from "./apiProvide";
+export * from "./apiInject";
 export * from "./apiWatch";
 export * from "./components/Teleport";
 export * from "./components/Transition";

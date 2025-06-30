@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module">
+    // import {
+    //   render,
+    //   h,
+    //   provide,
+    //   inject
+    // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.prod.js";
+    import { render, h, ref, provide, inject } from "../../../packages/vue/dist/vue.js";
+
+
+    // ----------------------- provide 和 inject -----------------------
+
+    const InjectComponent = {
+      setup(props) {
+        return () => {
+          return h(ProvideComponent2);
+        }
+      }
+    }
+
+    const ProvideComponent2 = {
+      setup(props) {
+        const name = inject('name', '默认');
+
+        return () => {
+          return h('div', `姓名：${name.value}`);
+        }
+      }
+    }
+
+    const ProvideComponent = {
+      setup(props) {
+        const name = ref('张三');
+
+        setTimeout(() => {
+          name.value = '李四';
+        }, 1000);
+
+        provide('name',name);
+
+        return () => {
+          return h(InjectComponent);
+        }
+      }
+    }
+
+    render(h(ProvideComponent), app)
+  </script>
+</body>
+
+</html>
