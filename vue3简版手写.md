@@ -4585,9 +4585,62 @@ export const unsetCurrentInstance = () => {
 
 
 
+##### 基本使用
+
+```ts
+import { render, h, ref } from "../../../packages/vue/dist/vue.js";
+
+const VueComponent = {
+  setup() {
+    const divRef = ref(null);
+
+    return () => {
+      return h('div', { ref: divRef }, 'ref 的使用');
+    }
+  }
+};
+
+render(h(VueComponent), app);
+```
+
+可以看到，是通过响应式 api ref 先创建一个 ref
 
 
-#### 组件的生命周期
+
+##### 实现
+
+```ts
+const patch = (n1, n2, container, anchor = null, parentComponent = null) => {
+  // ...
+  
+  const { type, shapeFlag, ref } = n2;
+  
+  // ...
+  
+  if (ref !== null) {
+    setRef(ref, n2);
+  }
+}
+
+
+function setRef(rawRef, vnode) {
+  let value =
+    vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT
+      ? vnode.component.proxy
+      : vnode.el;
+  if (isRef(rawRef)) {
+    rawRef.value = value;
+  }
+}
+```
+
+- 判断是组件还是元素
+- 是组件，那么 ref.value 上赋值组件实例
+- 是元素，将当前元素赋值到 ref.value
+
+
+
+#### 组件生命周期
 
 
 

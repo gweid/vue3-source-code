@@ -771,7 +771,7 @@ export function createRenderer(renderOptions) {
     }
 
     if (ref !== null) {
-      // n2 是dom 还是 组件 还是组件有expose
+      // n2 是 dom 还是组件 还是组件有expose
       setRef(ref, n2);
     }
   };

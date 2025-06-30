@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   render,
+      //   Fragment,
+      //   h,
+      //   Text,
+      // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js";
+      import { render, h, ref } from "../../../packages/vue/dist/vue.js";
+
+      const VueComponent = {
+        setup() {
+          const divRef = ref(null);
+
+          return () => {
+            return h('div', { ref: divRef }, 'ref 的使用');
+          }
+        }
+      };
+
+      render(h(VueComponent), app);
+    </script>
+  </body>
+</html>
