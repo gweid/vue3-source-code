@@ -10,87 +10,60 @@
 
     <script type="module">
       // import {
-      //   createRenderer,
       //   render,
-      //   Fragment,
       //   h,
-      //   Text,
-      //   ref,
-      //   getCurrentInstance,
       //   onMounted,
-      //   onBeforeMount,
-      //   onBeforeUpdate,
-      //   onUpdated,
-      //   provide,
-      //   inject,
-      //   Teleport, // == render
-      //   // Transition,
-      //   KeepAlive,
+      //   KeepAlive
       // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js";
 
       import {
-        createRenderer,
         render,
-        Fragment,
         h,
-        Text,
-        ref,
-        getCurrentInstance,
         onMounted,
-        onBeforeMount,
-        onBeforeUpdate,
-        onUpdated,
-        provide,
-        inject,
-        Teleport, // == render
-        // Transition,
         KeepAlive,
-      } from "../../packages/runtime-dom/dist/runtime-dom.js";
+      } from "../../packages/vue/dist/vue.js";
 
-      // 缓存的是dom， keepalive缓存后不会重新渲染，而是复用原来的dom元素
+      let keepAliveProps = { max: 10 };
 
-      // 1.组件不会被重新创建，会将上次的结果拿出来返回
-      // 2.组件不会被被卸载，而是将dom移除掉
-      // 3.内部需要缓存dom
-
-      let keepAliveProps = { max: 1 };
-      const A1 = {
-        a: "a1",
+      const CompA = {
+        a: "CompA",
         setup() {
           onMounted(() => {
-            console.log("a1 mounted");
+            console.log("CompA mounted");
           });
           return () => {
-            return h("h1", "a1");
+            return h("h1", "CompA");
           };
         },
       };
-      const A2 = {
-        a: "a2",
+
+      const CompB = {
+        a: "CompB",
         setup() {
           onMounted(() => {
-            console.log("a2 mounted");
+            console.log("CompB mounted");
           });
           return () => {
-            return h("h1", "a2");
+            return h("h1", "CompB");
           };
         },
       };
-      const A3 = {
-        a: "a3",
+
+      const CompC = {
+        a: "CompC",
         setup() {
           onMounted(() => {
-            console.log("a3 mounted");
+            console.log("CompC mounted");
           });
           return () => {
-            return h("h1", "a3");
+            return h("h1", "CompC");
           };
         },
       };
 
       render(
         h(KeepAlive, keepAliveProps, {
-          default: () => h(A1, { key: "a1" }),
+          default: () => h(CompA, { key: "CompA" }),
         }),
         app
       );
@@ -98,7 +71,7 @@
       setTimeout(() => {
         render(
           h(KeepAlive, keepAliveProps, {
-            default: () => h(A2, { key: "a2" }),
+            default: () => h(CompB, { key: "CompB" }),
           }),
           app
         );
@@ -107,7 +80,7 @@
       setTimeout(() => {
         render(
           h(KeepAlive, keepAliveProps, {
-            default: () => h(A1, { key: "a1" }),
+            default: () => h(CompA, { key: "CompA" }),
           }),
           app
         );
@@ -116,7 +89,7 @@
       setTimeout(() => {
         render(
           h(KeepAlive, keepAliveProps, {
-            default: () => h(A3, { key: "a3" }),
+            default: () => h(CompC, { key: "CompC" }),
           }),
           app
         );
@@ -125,28 +98,11 @@
       setTimeout(() => {
         render(
           h(KeepAlive, keepAliveProps, {
-            default: () => h(A2, { key: "a2" }),
+            default: () => h(CompB, { key: "CompB" }),
           }),
           app
         );
       }, 4000);
-
-      // import {
-      //   render,
-      //   h,
-      //   Text,
-      //   Fragment,
-      //   ref, //   onMounted,
-      //   onBeforeMount,
-      //   onBeforeUpdate,
-      //   onUpdated,
-      //   onMounted,
-      //   getCurrentInstance,
-      //   provide,
-      //   inject,
-      //   Teleport,
-      //   Transition,
-      // } from "../../packages/runtime-dom/dist/runtime-dom.js";
     </script>
   </body>
 </html>

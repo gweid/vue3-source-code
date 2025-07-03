@@ -4851,7 +4851,296 @@ function setupRenderEffect(instance, container, anchor, parentComponent) {
 
 #### keep-alive
 
-作用：在多个组件间动态切换时缓存被移除的组件实例
+作用：在多个组件间动态切换时**缓存**被移除的组件实例
+
+
+
+##### 基本使用
+
+```ts
+let keepAliveProps = { max: 10 };
+
+const CompA = {
+  a: "CompA",
+  setup() {
+    onMounted(() => {
+      console.log("CompA mounted");
+    });
+    return () => {
+      return h("h1", "CompA");
+    };
+  },
+};
+
+const CompB = {
+  a: "CompB",
+  setup() {
+    onMounted(() => {
+      console.log("CompB mounted");
+    });
+    return () => {
+      return h("h1", "CompB");
+    };
+  },
+};
+
+const CompC = {
+  a: "CompC",
+  setup() {
+    onMounted(() => {
+      console.log("CompC mounted");
+    });
+    return () => {
+      return h("h1", "CompC");
+    };
+  },
+};
+
+render(
+  h(KeepAlive, keepAliveProps, {
+    default: () => h(CompA, { key: "CompA" }),
+  }),
+  app
+);
+
+setTimeout(() => {
+  render(
+    h(KeepAlive, keepAliveProps, {
+      default: () => h(CompB, { key: "CompB" }),
+    }),
+    app
+  );
+}, 1000);
+
+setTimeout(() => {
+  render(
+    h(KeepAlive, keepAliveProps, {
+      default: () => h(CompA, { key: "CompA" }),
+    }),
+    app
+  );
+}, 2000);
+
+setTimeout(() => {
+  render(
+    h(KeepAlive, keepAliveProps, {
+      default: () => h(CompC, { key: "CompC" }),
+    }),
+    app
+  );
+}, 3000);
+
+setTimeout(() => {
+  render(
+    h(KeepAlive, keepAliveProps, {
+      default: () => h(CompB, { key: "CompB" }),
+    }),
+    app
+  );
+}, 4000);
+```
+
+
+
+##### 实现
+
+先实现 keep-alive 组件本身的逻辑：
+
+```ts
+export const KeepAlive = {
+  // 标记为 keep-alive
+  __isKeepAlive: true,
+
+  props: {
+    max: Number,
+  },
+
+  setup(props, { slots }) {
+    const { max } = props;
+    const keys = new Set(); // 用来记录哪些组件缓存过
+    const cache = new Map(); // 缓存表 <keep-alive key="xxx"> xx </keep-alive>
+
+    // 在这个组件中需要一些dom方法 可以将元素移动到一个div 中，
+    // 还可以卸载某个元素
+
+    let pendingCacheKey = null;
+    const instance = getCurrentInstance();
+
+    // 这里是keepalive 特有的初始化方法
+    // 激活时执行
+
+    const { move, createElement, unmount: _unmount } = instance.ctx.renderer;
+
+    function reset(vnode) {
+      let shapeFlag = vnode.shapeFlag;
+      // 1 | 4  = 5      5 - 1 =4
+      if (shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+        shapeFlag -= ShapeFlags.COMPONENT_KEPT_ALIVE;
+      }
+      if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+        shapeFlag -= ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE;
+      }
+      vnode.shapeFlag = shapeFlag;
+    }
+
+    function unmount(vnode) {
+      reset(vnode); // 将 vnode 标识去除
+      _unmount(vnode); // 真正的做删除
+    }
+
+    function purneCacheEntry(key) {
+      keys.delete(key);
+      const cached = cache.get(key); // 之前缓存的结果
+      // 还原vnode上的标识，否则无法走移除逻辑
+      unmount(cached); // 走真实的删除dom元素
+    }
+
+    const cacheSubTree = () => {
+      // 缓存组件的虚拟节点，里面有组件的dom元素
+      cache.set(pendingCacheKey, instance.subTree);
+    };
+
+    // keep-alive 组件激活的时候执行
+    instance.ctx.activate = function (vnode, container, anchor) {
+      move(vnode, container, anchor); // 将元素直接移入到容器中
+    };
+
+    // 卸载的时候执行
+    // 当切换到其他组件时，当前组件会被移动到一个隐藏容器 storageContainer 中
+    // 组件实例保持活跃，但从 DOM 中移除
+    const storageContainer = createElement("div");
+    instance.ctx.deactivate = function (vnode) {
+      move(vnode, storageContainer, null); // 将 dom 元素临时移动到这个div中但是没有被销毁
+    };
+
+    // 这两个分别会在组件挂载与更新的时候执行
+    // 也就是顺序晚于 下面的 return 的 render 函数
+    onMounted(cacheSubTree);
+    onUpdated(cacheSubTree);
+
+    // 缓存的是组件 -> 组件里有subtree -> subTree上有el元素 -> 移动到页面中
+
+    // 返回渲染函数
+    return () => {
+      const vnode = slots.default();
+
+      const comp = vnode.type;
+
+      // key 取组件的 key 或者组件的 type
+      const key = vnode.key == null ? comp : vnode.key;
+
+      const cacheVNode = cache.get(key);
+      pendingCacheKey = key;
+
+      if (cacheVNode) {
+        // 有缓存，不用重新创建组件的实例了，直接复用即可
+        vnode.component = cacheVNode.component;
+        // 告诉使用方不要初始化这个组件，这个是 keep-alive 组件
+        // 挂载后，才会打上 COMPONENT_KEPT_ALIVE 标识，也就是二次渲染才有用
+        vnode.shapeFlag |= ShapeFlags.COMPONENT_KEPT_ALIVE;
+        keys.delete(key);
+        keys.add(key); // 刷新缓存
+      } else {
+        // 没有缓存
+        keys.add(key);
+
+        if (max && keys.size > max) {
+          // 说明达到了最大的缓存个数
+
+          // keys.values().next().value：获取 set 集合中的第一个元素
+          // 删除缓存的第一个
+          purneCacheEntry(keys.values().next().value);
+        }
+      }
+
+      // 这个组件不需要真的卸载，卸载的 dom 临时放到存储容器中存放
+      vnode.shapeFlag |= ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE;
+      return vnode; // 等待组件加载完毕后在去缓存
+    };
+  },
+};
+```
+
+关注点先集中在返回的渲染函数中：
+
+- 首次渲染：
+  - 将组件缓存到 cache Map 中，将组件 key 添加到 keys Set 中
+  - 标记组件 shapeFlag |= COMPONENT_SHOULD_KEEP_ALIVE（这个在后面需要失活的时候用到）
+- 切换组件：
+  - 当切换到其他组件时，当前组件会被移动到一个隐藏容器 storageContainer 中
+  - 组件实例保持活跃，但从 DOM 中移除
+  - 通过 deactivate 方法处理组件的失活
+- 重新显示：
+  - 标记组件 shapeFlag |= COMPONENT_KEPT_ALIVE
+  - 通过 activate 方法将组件从隐藏容器移回到实际 DOM 中
+- 最大限制：
+  - 通过 max 属性限制最大缓存数量，超出时会删除最久未使用的组件
+
+
+
+什么时候触发 keep-alive 的激活与失活呢？
+
+首先是激活：
+
+```ts
+const processComponent = (n1, n2, container, anchor, parentComponent) => {
+  if (n1 === null) {
+    if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+      // 如果是 keepAlive 组件，需要走 keepAlive 中的激活方法 activate
+      parentComponent.ctx.activate(n2, container, anchor);
+    } else {
+      // 组件挂载
+      mountComponent(n2, container, anchor, parentComponent);
+    }
+  } else {
+    // ....
+  }
+};
+```
+
+- 在组件挂载的时候，判断 COMPONENT_KEPT_ALIVE 标记，走 keep-alive
+- 需要注意，这个 COMPONENT_KEPT_ALIVE 在初次渲染的时候才会被打上，也就是说，初次渲染不会走入这个判断，而是二次渲染才会进入判断
+
+
+
+失活：
+
+```ts
+const unmount = (vnode, parentComponent) => {
+  const { shapeFlag, transition, el } = vnode;
+
+  const performRemove = () => {
+    hostRemove(vnode.el);
+  };
+
+  if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+    // keep-alive 失活逻辑
+    parentComponent.ctx.deactivate(vnode);
+  } else if (vnode.type === Fragment) {
+    // ...
+  } else if (shapeFlag & ShapeFlags.COMPONENT) {
+    // ...
+  } else if (shapeFlag & ShapeFlags.TELEPORT) {
+    // ...
+  } else {
+    // ...
+  }
+};
+```
+
+
+
+##### 总结
+
+keep-alive 的核心机制是：
+
+- 缓存组件实例而不是销毁它们
+
+- 使用特殊的 DOM 操作将组件从文档中移入/移出，而不是销毁/重建
+
+- 使用 LRU 策略管理缓存容量
+
+- 通过特殊的 shapeFlag 标记和渲染器集成实现组件的缓存和恢复
 
 
 

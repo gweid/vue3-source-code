@@ -615,9 +615,9 @@ export function createRenderer(renderOptions) {
     // 处理 keepAlive 组件
     if (isKeepAlive(vnode)) {
       instance.ctx.renderer = {
-        createElement: hostCreateElement, // 内部需要创建一个div来缓存dom
+        createElement: hostCreateElement, // 内部需要创建一个 div 来缓存 dom
         move(vnode, container, anchor) {
-          // 需要把之前渲染的dom放入到容器中
+          // 需要把之前渲染的 dom 放入到容器中
           hostInsert(vnode.component.subTree.el, container, anchor);
         },
         unmount, // 如果组件切换需要将现在容器中的元素移除
@@ -705,7 +705,7 @@ export function createRenderer(renderOptions) {
   const processComponent = (n1, n2, container, anchor, parentComponent) => {
     if (n1 === null) {
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
-        // 需要走keepAlive中的激活方法
+        // 如果是 keepAlive 组件，需要走 keepAlive 中的激活方法 activate
         parentComponent.ctx.activate(n2, container, anchor);
       } else {
         // 组件挂载

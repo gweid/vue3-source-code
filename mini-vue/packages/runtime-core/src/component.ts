@@ -23,7 +23,7 @@ export function createComponentInstance(vnode, parent?) {
     setupState: {},
     exposed: null,
     parent,
-    ctx: {} as any, // 如果是keepAlive 组件，就将dom api放入到这个属性上
+    ctx: {} as any, // 如果是 keepAlive 组件，就将 dom api 放到这个属性上
 
     // p1 -> p2 -> p3
     // 所有的组件 provide 的值都一样

@@ -643,7 +643,7 @@ function createComponentInstance(vnode, parent) {
     exposed: null,
     parent,
     ctx: {},
-    // 如果是keepAlive 组件，就将dom api放入到这个属性上
+    // 如果是 keepAlive 组件，就将 dom api 放到这个属性上
     // p1 -> p2 -> p3
     // 所有的组件 provide 的值都一样
     // 父组件有，就继承父组件的 provide，父组件没有，就创建一个空对象
@@ -792,6 +792,7 @@ function invokeArray(fns) {
 
 // packages/runtime-core/src/components/KeepAlive.ts
 var KeepAlive = {
+  // 标记为 keep-alive
   __isKeepAlive: true,
   props: {
     max: Number
@@ -802,9 +803,6 @@ var KeepAlive = {
     const cache = /* @__PURE__ */ new Map();
     let pendingCacheKey = null;
     const instance = getCurrentInstance();
-    const cacheSubTree = () => {
-      cache.set(pendingCacheKey, instance.subTree);
-    };
     const { move, createElement, unmount: _unmount } = instance.ctx.renderer;
     function reset(vnode) {
       let shapeFlag = vnode.shapeFlag;
@@ -825,12 +823,15 @@ var KeepAlive = {
       const cached = cache.get(key);
       unmount(cached);
     }
+    const cacheSubTree = () => {
+      cache.set(pendingCacheKey, instance.subTree);
+    };
     instance.ctx.activate = function(vnode, container, anchor) {
       move(vnode, container, anchor);
     };
-    const storageContent = createElement("div");
+    const storageContainer = createElement("div");
     instance.ctx.deactivate = function(vnode) {
-      move(vnode, storageContent, null);
+      move(vnode, storageContainer, null);
     };
     onMounted(cacheSubTree);
     onUpdated(cacheSubTree);
@@ -1150,7 +1151,7 @@ function createRenderer(renderOptions2) {
     if (isKeepAlive(vnode)) {
       instance.ctx.renderer = {
         createElement: hostCreateElement,
-        // 内部需要创建一个div来缓存dom
+        // 内部需要创建一个 div 来缓存 dom
         move(vnode2, container2, anchor2) {
           hostInsert(vnode2.component.subTree.el, container2, anchor2);
         },
