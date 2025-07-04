@@ -5153,3 +5153,30 @@ keep-alive 的核心机制是：
 ## compiler
 
 编译时相关
+
+
+
+### 编译优化
+
+当是动态标签的时候，vue 在编译时会打上标记
+
+![](./imgs/img7.png)
+
+执行右边的 render 函数，得到的 vnode 如下：
+
+![](./imgs/img8.png)
+
+可以看到，当标签有动态属性，会被放进 dynamicChildren 中
+
+
+
+当条件语句的时候，会根据不同分支有多个 block，并且有 key 去做区分，在 diff 算法中，key 不同就直接替换
+
+![](./imgs/img10.png)
+
+
+
+总结就是：
+
+![](./imgs/img9.png)
+

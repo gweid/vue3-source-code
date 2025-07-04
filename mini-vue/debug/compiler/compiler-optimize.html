@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import {
+      createElementVNode as _createElementVNode,
+      openBlock as _openBlock,
+      createElementBlock as _createElementBlock,
+      normalizeStyle as _normalizeStyle,
+      normalizeClass as _normalizeClass,
+      toDisplayString as _toDisplayString,
+    } from "/node_modules/vue/dist/vue.esm-browser.prod.js";
+
+
+    // export function render(_ctx, _cache, $props, $setup, $data, $options) {
+    //   return (_openBlock(), _createElementBlock("div", null, [
+    //     _createElementVNode("div", null, "Hello World"),
+    //     _createElementVNode("p", {
+    //       style: _normalizeStyle({ color: _ctx.red }),
+    //       class: _normalizeClass(_ctx.a),
+    //       b: _ctx.b
+    //     }, _toDisplayString(_ctx.name), 15 /* TEXT, CLASS, STYLE, PROPS */, ["b"])
+    //   ]))
+    // }
+
+
+    export function render(_ctx, _cache, $props, $setup, $data, $options) {
+      return (_openBlock(), _createElementBlock("div", null, [
+        (_ctx.flag)
+          ? (_openBlock(), _createElementBlock("div", { key: 0 }, [
+            _createElementVNode("span", null, _toDisplayString(_ctx.name), 1 /* TEXT */)
+          ]))
+          : (_openBlock(), _createElementBlock("div", { key: 1 }, [
+            _createElementVNode("span", null, _toDisplayString(_ctx.age), 1 /* TEXT */)
+          ]))
+      ]))
+    }
+
+    const vnode = render({
+      name: '张三',
+      age: 18
+    })
+
+    console.log(vnode);
+
+  </script>
+</body>
+
+</html>
