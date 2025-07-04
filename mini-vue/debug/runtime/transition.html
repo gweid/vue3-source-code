@@ -19,38 +19,17 @@
     </style>
     <script type="module">
       // import {
-      //   createRenderer,
       //   render,
-      //   Fragment,
       //   h,
-      //   Text,
       //   ref,
-      //   getCurrentInstance,
-      //   onMounted,
-      //   onBeforeMount,
-      //   onBeforeUpdate,
-      //   onUpdated,
-      //   provide,
-      //   inject,
-      //   Teleport, // == render
       //   // Transition,
       // } from "/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.prod.js";
       import {
         render,
         h,
-        Text,
-        Fragment,
-        ref, //   onMounted,
-        onBeforeMount,
-        onBeforeUpdate,
-        onUpdated,
-        onMounted,
-        getCurrentInstance,
-        provide,
-        inject,
-        Teleport,
+        ref,
         Transition,
-      } from "../../packages/runtime-dom/dist/runtime-dom.js";
+      } from "../../packages/vue/dist/vue.js";
 
       const props = {
         name: "x",

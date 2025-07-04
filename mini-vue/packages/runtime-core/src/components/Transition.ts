@@ -8,6 +8,7 @@ function nextFrame(fn) {
     requestAnimationFrame(fn);
   });
 }
+
 export function resolveTransitionProps(props) {
   const {
     name = "v",
@@ -71,6 +72,7 @@ export function resolveTransitionProps(props) {
     },
   };
 }
+
 export function Transition(props, { slots }) {
   // 函数式组件的功能比较少，为了方便函数式组件处理了属性
   // 处理属性后传递给 状态组件 setup

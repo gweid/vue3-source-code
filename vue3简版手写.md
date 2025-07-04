@@ -5144,6 +5144,12 @@ keep-alive 的核心机制是：
 
 
 
+#### transition 动画
+
+
+
+
+
 ## compiler
 
 编译时相关
