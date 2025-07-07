@@ -69,6 +69,7 @@ function getCursor(context) {
   return { line, column, offset };
 }
 
+// 解析文本
 function parseText(context) {
   //
   let tokens = ["<", "{{"]; // 找当前离着最近的词法
@@ -99,6 +100,7 @@ function getSelection(context, start, e?) {
   };
 }
 
+// 解析插值表达式
 function parseInterpolation(context) {
   const start = getCursor(context);
   const closeIndex = context.source.indexOf("}}", 2);
@@ -277,6 +279,7 @@ function parseChilren(context) {
       // 文本  // abc  {{}} <div></div>
       node = parseText(context);
     }
+
     // 状态机
     nodes.push(node);
   }
