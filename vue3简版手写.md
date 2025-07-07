@@ -1323,7 +1323,7 @@ export class ComputedRefImpl<T> {
     >     ```ts
     >     export class ComputedRefImpl<T> {
     >       public effect; // 计算属性依赖
-    >         
+    >                 
     >       constructor(getter, public setter) {
     >         // 创建一个 effect 来关联当前计算属性的 dirty 属性
     >         this.effect = new ReactiveEffect(
@@ -1350,7 +1350,7 @@ export class ComputedRefImpl<T> {
     >       },
     >     });
     >     ```
-    >    
+    >            
     >     这一段，这一段会访问 state.name，触发 state.name 的 getter 函数，进行依赖收集，因为上面将 activeEffect 设置为 computed effect，所以这里的 state.name 收集到的依赖是  computed effect
     >
     >   - 执行完之后，设置 activeEffect = lastEffect，那么此时的 activeEffect 变成了 render effect
@@ -5158,25 +5158,113 @@ keep-alive 的核心机制是：
 
 ### 编译优化
 
-当是动态标签的时候，vue 在编译时会打上标记
+
+
+#### PatchFlags 优化
+
+当是动态标签的时候，vue 在编译时会打上标记。比如：
+
+```vue
+<div>
+  <div>Hello World</div>
+  <p :style="{ color: red }" :class="a" :b="b">{{ name }}</p>
+</div>
+```
+
+这段 template 编译后为：
 
 ![](./imgs/img7.png)
 
-执行右边的 render 函数，得到的 vnode 如下：
-
-![](./imgs/img8.png)
-
-可以看到，当标签有动态属性，会被放进 dynamicChildren 中
+可以看到，会给动态的标签，打上标记 patchflags，在运行时阶段根据这个标识进行靶向更新。
 
 
 
-当条件语句的时候，会根据不同分支有多个 block，并且有 key 去做区分，在 diff 算法中，key 不同就直接替换
+运行时阶段分为两块：执行 render 函数阶段和更新视图阶段：
 
-![](./imgs/img10.png)
+- 执行 render 函数阶段会找出所有被标记的动态节点，将其塞到`block`节点的`dynamicChildren`属性数组中。
+
+  ![](./imgs/img8.png)
+
+- 更新视图阶段会从 block 节点的`dynamicChildren`属性数组中拿到所有的动态节点，然后遍历这个数组将里面的动态节点进行靶向更新。
+
+
+
+Block：为了规避全量比较 VNode，可以把这些动态的节点放到某一个独立的地方进行维护，这样**新旧虚拟Node**的节点可以在一个地方进行比较。这就是 dynamicChildren 属性的意义。
 
 
 
 总结就是：
 
 ![](./imgs/img9.png)
+
+
+
+#### BlockTree
+
+此时有一个问题：当**DOM**结构不稳定的时候，要想能通过遍历数组的方式去调用`patch`函数对元素进行更新的前提条件是**新旧虚拟Node**的`dynamicChildren`的元素是一一对应的，因为只有**新旧虚拟Node**是同一个元素进行调用`patch`依次更新才有意义
+
+
+
+然而在程序中一般包含了大量的`v-if`、`v-else`、`v-else-if`、`v-for`等可能改变**DOM**树结构的指令。比如：
+
+```vue
+<div>
+  <div v-if="flag">
+    <span>{{ name }}</span>
+  </div>
+  <div v-else>
+    <span>{{ age }}</span>
+  </div>
+</div>
+```
+
+当`flag`的值不同的时候，如果只使用 Block，收集的动态节点个数是不相同的。
+
+
+
+为了解决只使用`Block`来提升更新性能的时候所产生的问题，**Block Tree**产生了。所谓的**Block Tree**，其实就是把那些**DOM**结构可能发生改变的地方也作为一个动态节点进行收集。
+
+
+
+比如上面那段 template 编译后变为：
+
+![](./imgs/img10.png)
+
+此时的 dynamicChildren 会生成两个
+
+```ts
+// v-if/v-else 生成嵌套Block
+const _block = {
+  dynamicChildren: [
+    {
+      type: Symbol('Block'),
+      dynamicChildren: [/* v-if分支内容 */],
+      key: 'if-branch'
+    },
+    {
+      type: Symbol('Block'),
+      dynamicChildren: [/* v-else分支内容 */],
+      key: 'else-branch'
+    }
+  ]
+}
+```
+
+
+
+#### 静态提升
+
+
+
+
+
+#### 预字符串化
+
+
+
+
+
+#### 缓存函数
+
+
 
