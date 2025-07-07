@@ -41,20 +41,35 @@
     // }
 
 
+    // -------------------- v-if ----------------------
+
+    // export function render(_ctx, _cache, $props, $setup, $data, $options) {
+    //   return (_openBlock(), _createElementBlock("div", null, [
+    //     (_ctx.flag)
+    //       ? (_openBlock(), _createElementBlock("p", { key: 0 }, [
+    //         _createElementVNode("span", null, _toDisplayString(_ctx.name), 1 /* TEXT */)
+    //       ]))
+    //       : (_openBlock(), _createElementBlock("div", { key: 1 }, [
+    //         _createElementVNode("span", null, _toDisplayString(_ctx.age), 1 /* TEXT */)
+    //       ]))
+    //   ]))
+    // }
+
+
+    // -------------------- v-for ----------------------
+
     export function render(_ctx, _cache, $props, $setup, $data, $options) {
-      return (_openBlock(), _createElementBlock("section", null, [
-        (_ctx.flag)
-          ? (_openBlock(), _createElementBlock("div", { key: 0 }, [
-            _createElementVNode("span", null, _toDisplayString(_ctx.name), 1 /* TEXT */)
+      return (_openBlock(), _createElementBlock("div", null, [
+        (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(_ctx.arr, (item) => {
+          return (_openBlock(), _createElementBlock("p", null, [
+            _createElementVNode("span", null, _toDisplayString(item), 1 /* TEXT */)
           ]))
-          : (_openBlock(), _createElementBlock("div", { key: 1 }, [
-            _createElementVNode("span", null, _toDisplayString(_ctx.age), 1 /* TEXT */)
-          ]))
+        }), 256 /* UNKEYED_FRAGMENT */))
       ]))
     }
 
     const vnode = render({
-      flag: true,
+      arr: [1, 2, 3],
     })
 
     console.log(vnode);

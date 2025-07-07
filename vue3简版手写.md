@@ -1323,7 +1323,7 @@ export class ComputedRefImpl<T> {
     >     ```ts
     >     export class ComputedRefImpl<T> {
     >       public effect; // 计算属性依赖
-    >                 
+    >                     
     >       constructor(getter, public setter) {
     >         // 创建一个 effect 来关联当前计算属性的 dirty 属性
     >         this.effect = new ReactiveEffect(
@@ -1350,7 +1350,7 @@ export class ComputedRefImpl<T> {
     >       },
     >     });
     >     ```
-    >            
+    >                
     >     这一段，这一段会访问 state.name，触发 state.name 的 getter 函数，进行依赖收集，因为上面将 activeEffect 设置为 computed effect，所以这里的 state.name 收集到的依赖是  computed effect
     >
     >   - 执行完之后，设置 activeEffect = lastEffect，那么此时的 activeEffect 变成了 render effect
@@ -5205,13 +5205,17 @@ Block：为了规避全量比较 VNode，可以把这些动态的节点放到某
 
 
 
-然而在程序中一般包含了大量的`v-if`、`v-else`、`v-else-if`、`v-for`等可能改变**DOM**树结构的指令。比如：
+然而在程序中一般包含了大量的`v-if`、`v-else`、`v-else-if`、`v-for`等可能改变**DOM**树结构的指令。
+
+
+
+**对于 v-if：**
 
 ```vue
 <div>
-  <div v-if="flag">
+  <p v-if="flag">
     <span>{{ name }}</span>
-  </div>
+  </p>
   <div v-else>
     <span>{{ age }}</span>
   </div>
@@ -5230,25 +5234,49 @@ Block：为了规避全量比较 VNode，可以把这些动态的节点放到某
 
 ![](./imgs/img10.png)
 
-此时的 dynamicChildren 会生成两个
+此时 dynamicChildren 中会根据条件 flag 进行收集。同时有 key
 
-```ts
-// v-if/v-else 生成嵌套Block
-const _block = {
-  dynamicChildren: [
-    {
-      type: Symbol('Block'),
-      dynamicChildren: [/* v-if分支内容 */],
-      key: 'if-branch'
-    },
-    {
-      type: Symbol('Block'),
-      dynamicChildren: [/* v-else分支内容 */],
-      key: 'else-branch'
-    }
-  ]
-}
+在比对新旧 dynamicChildren 的时候，发现 key 不一致，直接更新
+
+
+
+**对于 v-for：**
+
+```vue
+<div>
+  <p v-for="item in arr">
+    <span>{{ item }}</span>
+  </p>
+</div>
 ```
+
+
+
+template 编译后生成：
+
+![](./imgs/img11.png)
+
+可以看到，创建 vnode 的时候，会先创建一个 Fragment 包裹。因为 for 循环，每次数据长度都可能不一样。那么是没法进行动态比较的。
+
+看下生成的 vnode
+
+![](./imgs/img12.png)
+
+所以 _openBlock(true) 参数是 true，表示不收集动态子节点，要进行全量比较。但是通过 Fragment 包裹，会将当前整个 for 循环当做动态节点收集到 dynamicChildren
+
+好处，比如
+
+```vue
+<div>
+  <div>hello</div>
+
+  <p v-for="item in arr">
+    <span>{{ item }}</span>
+  </p>
+</div>
+```
+
+这种有静态节点和 v-for 的场景，只会比较动态的 v-for，静态节点就跳过了
 
 
 
