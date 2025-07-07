@@ -5280,6 +5280,26 @@ template 编译后生成：
 
 
 
+但是 v-for 也有特殊情况，比如循环的是死值的时候
+
+```vue
+<div>
+  <p v-for="item in 3">
+    <span>{{ item }}</span>
+  </p>
+</div>
+```
+
+会收集动态子节点，因为这是固定的，可以看到 openBlock 没有传参数 true
+
+![](./imgs/img13.png)
+
+生成的 vnode
+
+![](./imgs/img14.png)
+
+
+
 #### 实现靶向跟新
 
 根据上面，经过编译后：
