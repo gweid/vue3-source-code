@@ -5252,6 +5252,160 @@ const _block = {
 
 
 
+#### 实现靶向跟新
+
+根据上面，经过编译后：
+
+```ts
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  return (_openBlock(), _createElementBlock("div", null, [
+    _createElementVNode("div", null, "Hello World"),
+    _createElementVNode("p", {
+      style: _normalizeStyle({ color: _ctx.red }),
+      class: _normalizeClass(_ctx.a),
+      b: _ctx.b
+    }, _toDisplayString(_ctx.name), 15 /* TEXT, CLASS, STYLE, PROPS */, ["b"])
+  ]))
+}
+```
+
+
+
+那么需要实现 \_openBlock、\_createElementVNode 这些函数
+
+
+
+> packages/runtime-core/src/vnode.ts
+
+```ts
+let currentBlock = null;
+
+
+export function createVnode(type, props, children?, patchFlag?) {
+  // ...
+
+  // 虚拟 DOM 节点
+  const vnode = {
+    // ...
+    patchFlag,
+  };
+
+  // 如果是动态节点，添加到全局变量 currentBlock 中
+  // 后面会放到 vnode.dynamicChildren 中
+  if (currentBlock && patchFlag > 0) {
+    currentBlock.push(vnode);
+  }
+
+  // ...
+
+  return vnode;
+}
+
+
+export function openBlock() {
+  currentBlock = []; // 用于收集动态节点的
+}
+
+export function closeBlock() {
+  currentBlock = null;
+}
+
+// 将动态节点收集到 vnode.dynamicChildren 中
+export function setupBlock(vnode) {
+  vnode.dynamicChildren = currentBlock; // 当前elementBlock会收集子节点，用当前block来收集
+  closeBlock();
+  return vnode;
+}
+
+// block 有收集虚拟节点的功能
+// 这个 patchFlag 参数是在编译阶段传入的
+// 编译阶段会将 template 编译成 render 函数，此时会根据是否动态节点，生成 patchFlag
+export function createElementBlock(type, props, children, patchFlag?) {
+  const vnode = createVnode(type, props, children, patchFlag);
+  // if (currentBlock) {
+  //   currentBlock.push(vnode);
+  // }
+  return setupBlock(vnode);
+}
+
+export function toDisplayString(value) {
+  return isString(value)
+    ? value
+    : value == null
+      ? ""
+      : isObject(value)
+        ? JSON.stringify(value)
+        : String(value);
+}
+```
+
+- 创建一个全局变量 currentBlock，用来存储动态节点
+- 在编译阶段生成的 render 函数中调用 createElementBlock 会传入 patchFlag
+  - 调用在 createVnode 中，发现有传入 patchFlag，会添加到 currentBlock
+  - 调用 setupBlock，将 currentBlock 挂载到 vnode.dynamicChildren 属性上
+
+
+
+然后在运行时阶段：
+
+```ts
+// 遍历新的动态节点，一一对应比较
+const patchBlockChildren = (n1, n2, el, anchor, parentComponent) => {
+  for (let i = 0; i < n2.dynamicChildren.length; i++) {
+    patch(
+      n1.dynamicChildren[i],
+      n2.dynamicChildren[i],
+      el,
+      anchor,
+      parentComponent
+    );
+  }
+};
+
+const patchElement = (n1, n2, container, anchor, parentComponent) => {
+  // 1.比较元素的差异，肯定需要复用 dom 元素
+  // 2.比较属性和元素的子节点
+  let el = (n2.el = n1.el); // 对dom元素的复用
+
+  let oldProps = n1.props || {};
+  let newProps = n2.props || {};
+
+  // 在比较元素的时候 针对某个属性来去比较
+  const { patchFlag, dynamicChildren } = n2;
+
+  // 靶向更新
+  if (patchFlag) {
+    if (patchFlag & PatchFlags.STYLE) {
+      //
+    }
+    if (patchFlag & PatchFlags.CLASS) {
+      //
+    }
+    if (patchFlag & PatchFlags.TEXT) {
+      // 只要文本是动态的只比较文本
+      if (n1.children !== n2.children) {
+        return hostSetElementText(el, n2.children);
+      }
+    }
+  } else {
+    // ...
+  }
+
+  if (dynamicChildren) {
+    // 有动态节点，只比较动态节点
+    patchBlockChildren(n1, n2, el, anchor, parentComponent);
+  } else {
+    // 全量 diff，比较子节点，这里面是 dom diff
+    patchChildren(n1, n2, el, anchor, parentComponent);
+  }
+};
+```
+
+- 区分是否有 patchflag 进行比对，只比对 style、class 或者子节点是文本的
+- 子节点是数组，并且有 dynamicChildren，那么遍历新的子节点的 dynamicChildren 进行比较
+
+
+
 #### 静态提升
 
 

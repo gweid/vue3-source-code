@@ -1,5 +1,5 @@
 import { ShapeFlags, hasOwn } from "@vue/shared";
-import { Fragment, Text, createVnode, isSameVnode } from "./createVnode";
+import { Fragment, Text, createVnode, isSameVnode } from "./vnode";
 import getSequence from "./seq";
 import { ReactiveEffect, isRef, reactive } from "@vue/reactivity";
 import { queueJob } from "./scheduler";
@@ -429,6 +429,7 @@ export function createRenderer(renderOptions) {
     }
   };
 
+  // 遍历新的动态节点，一一对应比较
   const patchBlockChildren = (n1, n2, el, anchor, parentComponent) => {
     for (let i = 0; i < n2.dynamicChildren.length; i++) {
       patch(
@@ -452,11 +453,12 @@ export function createRenderer(renderOptions) {
     // 在比较元素的时候 针对某个属性来去比较
     const { patchFlag, dynamicChildren } = n2;
 
+    // 靶向更新
     if (patchFlag) {
       if (patchFlag & PatchFlags.STYLE) {
         //
       }
-      if (patchFlag & PatchFlags.STYLE) {
+      if (patchFlag & PatchFlags.CLASS) {
         //
       }
       if (patchFlag & PatchFlags.TEXT) {
@@ -471,7 +473,7 @@ export function createRenderer(renderOptions) {
     }
 
     if (dynamicChildren) {
-      // 线性比对
+      // 有动态节点，只比较动态节点
       patchBlockChildren(n1, n2, el, anchor, parentComponent);
     } else {
       // 全量 diff，比较子节点，这里面是 dom diff

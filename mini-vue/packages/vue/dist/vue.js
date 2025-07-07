@@ -473,7 +473,7 @@ var Teleport = {
 };
 var isTeleport = (value) => value.__isTeleport;
 
-// packages/runtime-core/src/createVnode.ts
+// packages/runtime-core/src/vnode.ts
 var Text = Symbol("Text");
 var Fragment = Symbol("Fragment");
 function isVnode(value) {
@@ -497,6 +497,7 @@ function createVnode(type, props, children, patchFlag) {
     ref: props?.ref,
     patchFlag
   };
+  debugger;
   if (currentBlock && patchFlag > 0) {
     currentBlock.push(vnode);
   }
@@ -1059,7 +1060,7 @@ function createRenderer(renderOptions2) {
     if (patchFlag) {
       if (patchFlag & 4 /* STYLE */) {
       }
-      if (patchFlag & 4 /* STYLE */) {
+      if (patchFlag & 2 /* CLASS */) {
       }
       if (patchFlag & 1 /* TEXT */) {
         if (n1.children !== n2.children) {

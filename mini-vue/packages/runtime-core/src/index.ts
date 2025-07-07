@@ -1,7 +1,7 @@
 // 完全不关心 api 层面的，可以跨平台
 
 export * from "./h";
-export * from "./createVnode";
+export * from "./vnode";
 export * from "./renderer";
 export * from "@vue/reactivity";
 export * from "./apiLifecycle";

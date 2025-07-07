@@ -50,6 +50,9 @@ export function createVnode(type, props, children?, patchFlag?) {
     patchFlag,
   };
 
+  debugger
+  // 如果是动态节点，添加到全局变量 currentBlock 中
+  // 后面会放到 vnode.dynamicChildren 中
   if (currentBlock && patchFlag > 0) {
     currentBlock.push(vnode);
   }
@@ -71,7 +74,12 @@ export function createVnode(type, props, children?, patchFlag?) {
   return vnode;
 }
 
+
+
+// ------------------------ patch flag 相关 ------------------------
+
 let currentBlock = null;
+
 export function openBlock() {
   currentBlock = []; // 用于收集动态节点的
 }
@@ -80,6 +88,7 @@ export function closeBlock() {
   currentBlock = null;
 }
 
+// 将动态节点收集到 vnode.dynamicChildren 中
 export function setupBlock(vnode) {
   vnode.dynamicChildren = currentBlock; // 当前elementBlock会收集子节点，用当前block来收集
   closeBlock();
@@ -87,6 +96,18 @@ export function setupBlock(vnode) {
 }
 
 // block 有收集虚拟节点的功能
+// 这个 patchFlag 参数是在编译阶段传入的
+// 编译阶段会将 template 编译成 render 函数，此时会根据是否动态节点，生成 patchFlag
+// function render(_ctx, _cache, $props, $setup, $data, $options) {
+//   return (_openBlock(), _createElementBlock("div", null, [
+//     _createElementVNode("div", null, "Hello World"),
+//     _createElementVNode("p", {
+//       style: _normalizeStyle({ color: _ctx.red }),
+//       class: _normalizeClass(_ctx.a),
+//       b: _ctx.b
+//     }, _toDisplayString(_ctx.name), 15 /* TEXT, CLASS, STYLE, PROPS */, ["b"])
+//   ]))
+// }
 export function createElementBlock(type, props, children, patchFlag?) {
   const vnode = createVnode(type, props, children, patchFlag);
   // if (currentBlock) {
@@ -99,10 +120,10 @@ export function toDisplayString(value) {
   return isString(value)
     ? value
     : value == null
-    ? ""
-    : isObject(value)
-    ? JSON.stringify(value)
-    : String(value);
+      ? ""
+      : isObject(value)
+        ? JSON.stringify(value)
+        : String(value);
 }
 
 export { createVnode as createElementVNode };

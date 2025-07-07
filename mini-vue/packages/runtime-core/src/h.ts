@@ -1,5 +1,5 @@
 import { isObject } from "@vue/shared";
-import { createVnode, isVnode } from "./createVnode";
+import { createVnode, isVnode } from "./vnode";
 
 /**
  * 创建虚拟 DOM 节点
