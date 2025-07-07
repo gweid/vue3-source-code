@@ -6,7 +6,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/dev.js vue -f esm"
+    "dev": "node scripts/dev.js vue -f esm",
+    "dev:compiler": "node scripts/dev.js compiler-core -f esm"
   },
   "keywords": [],
   "author": "",

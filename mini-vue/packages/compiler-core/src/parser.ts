@@ -1,15 +1,17 @@
 import { NodeTypes } from "./ast";
 
+// 创建 parse 上下文
 function createParserContext(content) {
   return {
     originalSource: content,
-    source: content, // 字符串会不停的减少
+    source: content, // 字符串会不停的减少(匹配上，处理后就删除匹配到的)
     line: 1,
     column: 1,
     offset: 0,
   };
 }
 
+// 判断是否解析完
 function isEnd(context) {
   const c = context.source;
   if (c.startsWith("</")) {
@@ -19,6 +21,12 @@ function isEnd(context) {
   return !c;
 }
 
+/**
+ * 更新位置信息
+ * @param context 上下文
+ * @param c 源码字符串
+ * @param endIndex 移动的距离
+ */
 function advancePositionMutation(context, c, endIndex) {
   let linesCount = 0; // 第几行
   let linePos = -1; // 换行的位置信息
@@ -35,12 +43,21 @@ function advancePositionMutation(context, c, endIndex) {
     linePos == -1 ? context.column + endIndex : endIndex - linePos;
 }
 
+/**
+ * 删除匹配到的内容，并更新位置信息
+ * @param context 上下文
+ * @param endIndex 移动的距离
+ */
 function advanceBy(context, endIndex) {
   let c = context.source;
+
   // 需要在这里更新位置信息
   advancePositionMutation(context, c, endIndex);
+
+  // 删除匹配到的内容
   context.source = c.slice(endIndex);
 }
+
 function parseTextData(context, endIndex) {
   const content = context.source.slice(0, endIndex);
   advanceBy(context, endIndex);
@@ -51,6 +68,7 @@ function getCursor(context) {
   let { line, column, offset } = context;
   return { line, column, offset };
 }
+
 function parseText(context) {
   //
   let tokens = ["<", "{{"]; // 找当前离着最近的词法
@@ -70,15 +88,17 @@ function parseText(context) {
     loc: getSelection(context, start),
   };
 }
+
 function getSelection(context, start, e?) {
   let end = e || getCursor(context);
-  // eslint 可以根据 start，end找到要报错的位置
+  // eslint 可以根据 start，end 找到要报错的位置
   return {
     start,
     end,
     source: context.originalSource.slice(start.offset, end.offset),
   };
 }
+
 function parseInterpolation(context) {
   const start = getCursor(context);
   const closeIndex = context.source.indexOf("}}", 2);
@@ -108,6 +128,7 @@ function parseInterpolation(context) {
     loc: getSelection(context, start),
   };
 }
+
 function advanceSpaces(context) {
   const match = /^[ \t\r\n]+/.exec(context.source);
 
@@ -116,6 +137,7 @@ function advanceSpaces(context) {
     advanceBy(context, match[0].length);
   }
 }
+
 function parseAttributeValue(context) {
   let quote = context.source[0];
 
@@ -134,20 +156,30 @@ function parseAttributeValue(context) {
   }
   return content;
 }
+
+// 匹配处理标签属性
 function parseAttribute(context) {
   const start = getCursor(context);
-  // a   = '1'
+
+  // 比如：a="1" B='1'></div>
   let match = /^[^\t\r\n\f />][^\t\r\n\f />=]*/.exec(context.source);
   const name = match[0];
   let value;
+
   advanceBy(context, name.length);
+
+  // 匹配标签属性中的等号（=）
+  // [\t\r\n\f ]*  表示匹配零个或多个空白字符
   if (/^[\t\r\n\f ]*=/.test(context.source)) {
-    advanceSpaces(context); //
+    advanceSpaces(context);
     advanceBy(context, 1);
     advanceSpaces(context);
     value = parseAttributeValue(context);
   }
+
+  // 获取属性位置信息
   let loc = getSelection(context, start);
+
   return {
     type: NodeTypes.ATTRIBUTE,
     name,
@@ -159,29 +191,50 @@ function parseAttribute(context) {
     loc: getSelection(context, start),
   };
 }
+
+// 匹配处理标签属性
 function parseAtrributes(context) {
   const props = [];
 
+  // 当原来是 <div a="1" B='1'></div> 时
+  // 经过上一步，得到的 context.source 为 a="1" B='1'></div>
+  // 会循环遍历，知道 context.source 还有并且不是 ">" 开头
   while (context.source.length > 0 && !context.source.startsWith(">")) {
+    // 不是以 ">" 开头，说明标签上有属性，开始做属性处理
     props.push(parseAttribute(context));
+
+    // 移除空格
     advanceSpaces(context);
   }
+
   return props;
 }
+
 function parseTag(context) {
   const start = getCursor(context);
+
+  // 匹配标签，比如：<div></div> 匹配得到 ['<div', 'div']
   const match = /^<\/?([a-z][^ \t\r\n/>]*)/.exec(context.source);
   const tag = match[1]; // <div   />
 
-  advanceBy(context, match[0].length); // 删除匹配到的内容
+  // 删除匹配到的内容
+  // 比如：<div></div>，删除匹配到的内容后，context.source 为 '></div>'
+  advanceBy(context, match[0].length);
 
-  advanceSpaces(context); // 空格移除
+  // 移除空格
+  advanceSpaces(context);
 
   // <div a="1" B='1' >
 
+  // 匹配处理标签属性
   let props = parseAtrributes(context);
+
+  // 判断是否是自闭合标签
   const isSelfClosing = context.source.startsWith("/>");
+  // 自闭合标签，那么剩下的是 '/>'，不是自闭合标签，那么剩下的是 '>'
+  // 所以自闭合标签，删除两位，不是自闭合标签，删除一位
   advanceBy(context, isSelfClosing ? 2 : 1);
+
   return {
     type: NodeTypes.ELEMENT,
     tag,
@@ -190,21 +243,27 @@ function parseTag(context) {
     props,
   };
 }
+
 function parseElement(context) {
   // <div >
   const ele = parseTag(context);
 
-  const children = parseChilren(context); // 递归解析儿子节点,但是解析的时候如果是结尾标签需要跳过
+  // 递归解析儿子节点,但是解析的时候如果是结尾标签需要跳过
+  const children = parseChilren(context);
 
   if (context.source.startsWith("</")) {
     parseTag(context); //  闭合标签没有意义直接移除即可
   }
+
   (ele as any).children = children;
   (ele as any).loc = getSelection(context, ele.loc.start);
+
   return ele;
 }
+
 function parseChilren(context) {
   const nodes = [] as any;
+
   while (!isEnd(context)) {
     const c = context.source; // 现在解析的内容
     let node;
@@ -221,6 +280,7 @@ function parseChilren(context) {
     // 状态机
     nodes.push(node);
   }
+
   // 状态机
   for (let i = 0; i < nodes.length; i++) {
     let node = nodes[i];
@@ -234,16 +294,21 @@ function parseChilren(context) {
       }
     }
   }
+
   return nodes.filter(Boolean);
 }
+
 function createRoot(children) {
   return {
     type: NodeTypes.ROOT,
     children,
   };
 }
+
 function parse(template) {
-  // 根据template 产生一棵树  line column offset
+  // 根据 template 生成 ast
+
+  // 创建 parse 上下文
   const context = createParserContext(template);
 
   return createRoot(parseChilren(context));

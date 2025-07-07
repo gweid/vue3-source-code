@@ -51,7 +51,7 @@ function createParserContext(content) {
   return {
     originalSource: content,
     source: content,
-    // 字符串会不停的减少
+    // 字符串会不停的减少(匹配上，处理后就删除匹配到的)
     line: 1,
     column: 1,
     offset: 0
