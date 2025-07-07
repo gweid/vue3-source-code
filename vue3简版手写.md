@@ -5456,17 +5456,73 @@ const patchElement = (n1, n2, container, anchor, parentComponent) => {
 
 #### 静态提升
 
+比如下面 template：
 
+```vue
+<div>
+  <div>Hello World</div>
+  <span a="a" b="b">{{name}}</span>
+  <p :style="{ color: red }" :class="a" :b="b">{{ name }}</p>
+</div>
+```
+
+
+
+如果每次更新的时候，静态节点，静态属性都要创建，那么挺消耗性能的
+
+![](./imgs/img15.png)
+
+
+
+此时，可以将静态的节点，属性提取到顶部，这样就不需要重复创建了
+
+![](./imgs/img16.png)
 
 
 
 #### 预字符串化
 
+比如：
 
+```vue
+<div>
+  <span>skskks</span>
+  <span>skskks</span>
+  <span>skskks</span>
+  <span>skskks</span>
+  <span>skskks</span>
+  <span>skskks</span>
+  <span>skskks</span>
+  <span>skskks</span>
+  <span>skskks</span>
+</div>
+```
+
+这样会通过多次调用 _createElementVNode 创建 vnode
+
+![](./imgs/img17.png)
+
+
+
+当长度超过一定长度的时候，会进行预字符串化
+
+![](./imgs/img18.png)
 
 
 
 #### 缓存函数
 
+比如：
 
+```vue
+<div @click="e => (val = e.target.value)"></div>
+```
+
+
+
+这个 template 编译后
+
+![](./imgs/img19.png)
+
+可以看到，如果这个事件有缓存，就从缓存里取
 
