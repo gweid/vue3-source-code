@@ -4,6 +4,7 @@ import {
   Fragment,
 } from "./runtimeHelpers";
 
+// 节点类型
 export enum NodeTypes {
   ROOT,
   ELEMENT,
@@ -48,6 +49,7 @@ export function createCallExpression(context, args) {
     callee: name,
   };
 }
+
 export function createVnodeCall(context, tag, props, children) {
   // createElementVnode()
   let name;
