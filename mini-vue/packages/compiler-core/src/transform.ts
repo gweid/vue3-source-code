@@ -14,9 +14,11 @@ import {
   Fragment,
 } from "./runtimeHelpers";
 
-// dom的遍历方式， 先序，后续
+function isText(node) {
+  return node.type === NodeTypes.INTERPOLATION || node.type === NodeTypes.TEXT;
+}
 
-// -》元素 -》文本 -》 文本处理后 -》 元素处理后 组件挂在流程
+// 转换元素
 function transformElement(node, context) {
   if (NodeTypes.ELEMENT == node.type) {
     return function () {
@@ -46,9 +48,8 @@ function transformElement(node, context) {
     };
   }
 }
-function isText(node) {
-  return node.type === NodeTypes.INTERPOLATION || node.type === NodeTypes.TEXT;
-}
+
+// 转换文本
 function transformText(node, context) {
   if (NodeTypes.ELEMENT == node.type || node.type === NodeTypes.ROOT) {
     // 注意处理顺序，要等待子节点全部处理后，在赋值给父元素
@@ -105,24 +106,37 @@ function transformText(node, context) {
     };
   }
 }
+
+// 转换表达式
 function transformExpression(node, context) {
   if (NodeTypes.INTERPOLATION == node.type) {
     node.content.content = `_ctx.${node.content.content}`;
   }
 }
+
+/**
+ * 创建转换上下文
+ * @param root 就是经过 parse 得到的 ast 树
+ * @returns 上下文
+ */
 function createTransformContext(root) {
   const context = {
     currentNode: root,
     parent: null,
 
-    // createElementVnode  createTextVnode   toDisplayString
+    // 先序，后序
+    // 元素 -> 文本 -> 表达式，在遍历节点的时候，会遍历这个数组，顺序逐一调用
+    // 最后，转换为带有 createElementVnode、createTextVnode、toDisplayString 等的 render 函数
     transformNode: [transformElement, transformText, transformExpression],
+
     helpers: new Map(), // createElementVnode 1
+
     helper(name) {
       let count = context.helpers.get(name) || 0;
       context.helpers.set(name, count + 1);
       return name;
     },
+
     removeHelper(name) {
       let count = context.helpers.get(name);
       if (count) {
@@ -135,18 +149,26 @@ function createTransformContext(root) {
       }
     },
   };
+
   return context;
 }
 
+/**
+ * 遍历节点
+ * @param node 当前节点
+ * @param context 上下文
+ */
 function traverseNode(node, context) {
   context.currentNode = node;
   const transforms = context.transformNode;
 
   const exits = []; // 元素函数，文本函数，表达式的函数
+
   for (let i = 0; i < transforms.length; i++) {
     let exit = transforms[i](node, context);
     exit && exits.push(exit);
   }
+
   switch (node.type) {
     case NodeTypes.ROOT:
     case NodeTypes.ELEMENT:
@@ -207,10 +229,13 @@ function createRootCodegenNode(ast, context) {
     ast.codegenNode.isBlock = true;
   }
 }
-function transform(ast) {
-  // babel babel-traverse
 
+function transform(ast) {
+
+  // 创建转换上下文
   const context = createTransformContext(ast);
+
+  // 遍历节点
   traverseNode(ast, context);
 
   createRootCodegenNode(ast, context);

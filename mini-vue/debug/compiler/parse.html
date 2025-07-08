@@ -12,28 +12,28 @@
       import { parse } from "../../packages/compiler-core/dist/compiler-core.js";
 
       // ------------ 基础模版编译
-      // const compilerResult = parse(`<div></div>`);
-      // console.log(compilerResult);
+      // const ast = parse(`<div></div>`);
+      // console.log(ast);
 
 
       // ------------ 子元素模版编译
-      // const compilerResult = parse(`<div><p></p></div>`);
-      // console.log(compilerResult);
+      // const ast = parse(`<div><p></p></div>`);
+      // console.log(ast);
 
 
       // ------------ 带文本的模版编译
-      // const compilerResult = parse(`<div>123</div>`);
-      // console.log(compilerResult);
+      // const ast = parse(`<div>123</div>`);
+      // console.log(ast);
 
 
       // ------------ 带变量的模版编译
-      // const compilerResult = parse(`<div>{{ name }}</div>`);
-      // console.log(compilerResult);
+      // const ast = parse(`<div>{{ name }}</div>`);
+      // console.log(ast);
 
 
       // ------------ 带属性的模版编译
-      // const compilerResult = parse(`<div a="1" B='1'></div>`);
-      // console.log(compilerResult);
+      const ast = parse(`<div a="1" B='1'></div>`);
+      console.log(ast);
     </script>
   </body>
 </html>

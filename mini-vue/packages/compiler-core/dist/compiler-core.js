@@ -263,6 +263,9 @@ function parse(template) {
 }
 
 // packages/compiler-core/src/transform.ts
+function isText(node) {
+  return node.type === 5 /* INTERPOLATION */ || node.type === 2 /* TEXT */;
+}
 function transformElement(node, context) {
   if (1 /* ELEMENT */ == node.type) {
     return function() {
@@ -287,9 +290,6 @@ function transformElement(node, context) {
       );
     };
   }
-}
-function isText(node) {
-  return node.type === 5 /* INTERPOLATION */ || node.type === 2 /* TEXT */;
 }
 function transformText(node, context) {
   if (1 /* ELEMENT */ == node.type || node.type === 0 /* ROOT */) {
@@ -352,7 +352,9 @@ function createTransformContext(root) {
   const context = {
     currentNode: root,
     parent: null,
-    // createElementVnode  createTextVnode   toDisplayString
+    // 先序，后序
+    // 元素 -> 文本 -> 表达式，在遍历节点的时候，会遍历这个数组，顺序逐一调用
+    // 最后，转换为带有 createElementVnode、createTextVnode、toDisplayString 等的 render 函数
     transformNode: [transformElement, transformText, transformExpression],
     helpers: /* @__PURE__ */ new Map(),
     // createElementVnode 1
